@@ -1,7 +1,4 @@
 # Pomme
-
-一个和 <https://fryy13427.github.io/> 同款结构的 **Hexo 博客**（Hexo 7.3.0 + Landscape 主题 + GitHub Actions 自动构建部署）。
-
 - 仓库：<https://github.com/xunshichen-2008/Pomme-project>
 - 站点（部署后）：<https://xunshichen-2008.github.io/Pomme-project/>
 - 本地目录：`F:\ctf\Pomme`
