@@ -17,7 +17,7 @@ Pomme/
 ├─ source/
 │  ├─ _posts/                  # 文章（.md）
 │  ├─ about/index.md           # “关于”页面
-│  ├─ images/                  # 图片（正文用 /Pomme-project/images/xxx.png 引用）
+│  ├─ images/                  # 图片（正文用 /images/xxx.png 引用，Hexo 会自动加仓库根路径）
 │  └─ favicon.png              # 站点图标
 └─ .github/workflows/pages.yml # 推送到 main 后自动构建并发布到 GitHub Pages
 ```
@@ -67,16 +67,14 @@ categories:
 ---
 ```
 
-图片：放到 `source/images/`，正文写 `![说明](/Pomme-project/images/xxx.png)`。
+图片：放到 `source/images/`，正文写 `![说明](/images/xxx.png)`（**不要**带 `/Pomme-project` 前缀，Hexo 会自动加）。
 
 ### 3.1 不装环境：直接在 GitHub 网页上传文件
 
 打开 <https://github.com/xunshichen-2008/Pomme-project>，用 **Add file → Upload files**（或 **Create new file**）即可，提交到 `main` 后 Actions 会自动构建，约 1 分钟上线。
 
-- **想让文件能通过网址下载**（比如 PDF）：传到 `source/` 下，例如 `source/周报/第五周周报.pdf`
-  → 发布到 <https://xunshichen-2008.github.io/Pomme-project/周报/第五周周报.pdf>
-  （注意：仓库根目录的 `周报/` 文件夹不参与网站构建，只有 `source/` 里的文件才会发布）
-- **想发成一篇博客文章**：`source/_posts/2026-10-25-标题.md`，内容开头必须是 front-matter：  ```
+- **想发成一篇博客文章**：`source/_posts/2026-10-25-标题.md`，开头必须是 front-matter：
+  ```yaml
   ---
   title: 我的周报
   date: 2026-10-25 20:00:00
@@ -86,10 +84,10 @@ categories:
 
   正文（Markdown）……
   ```
-
   提交后首页/归档/标签页会自动出现这篇文章。
-- **周报页面**：顶部导航「周报」→ <https://xunshichen-2008.github.io/Pomme-project/周报/>，会自动列出 `source/周报/` 里的所有 PDF（上传后约 1 分钟出现）。
-- 图片同理：上传到 `source/images/`，正文用 `/Pomme-project/images/xxx.png` 引用。
+- **附件 / PDF**：放到 `source/` 下会随站点一起发布（例如 `source/files/xxx.pdf` → `https://xunshichen-2008.github.io/Pomme-project/files/xxx.pdf`）。仓库根目录的 `周报/` 不参与构建。
+- **图片**：放到 `source/images/`，正文用 `/images/xxx.png` 引用（**不要**带 `/Pomme-project`，Hexo 会自动加）。
+- **周报正文**：顶部导航「周报」对应的文件是 `source/周报/index.md`，已经把《第五周周末及第六周周报》PDF 转成网页内容内嵌（不用点 PDF、没有链接）。新的周报 PDF 发我转换，或照着这个文件写 Markdown 即可。
 
 ## 4. 部署状态（已完成）
 
@@ -124,4 +122,5 @@ git add -A && git commit -m "update" && git push
 - [x] 站点 url/root 已指向 `xunshichen-2008/Pomme-project`
 - [x] 首次 `git push` 完成，Actions 部署成功
 - [x] 仓库 Pages 已开启（Source = GitHub Actions），站点已上线
-- [ ] 上传你自己的周报/文章（网页上传即可，见 3.1）
+- [x] 周报 PDF 已转成网页内容内嵌到「周报」页（51 页、64 张截图、2 个表格，无需点 PDF）
+- [ ] 后续周报/文章自己上传，或发我转换
