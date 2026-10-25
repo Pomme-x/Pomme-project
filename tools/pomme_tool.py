@@ -14,6 +14,7 @@
 
 import json
 import os
+import sys
 import queue
 import re
 import threading
@@ -144,7 +145,7 @@ class App(tk.Tk):
         super().__init__()
         self.title('Pomme 博客小工具')
         self.geometry('1040x760')
-        self.minsize(960, 700)
+        self.minsize(980, 740)
         self.cfg = load_config()
         self.log_queue = queue.Queue()
         self.ui_queue = queue.Queue()
@@ -163,148 +164,293 @@ class App(tk.Tk):
         threading.Thread(target=self._init_async, daemon=True).start()
 
     # ---------------- UI ----------------
-    def _build_ui(self):
+    BASE_BG = '#f4f5fa'
+    CARD_BG = '#ffffff'
+    BORDER = '#e3e6f0'
+    TEXT = '#1f2430'
+    MUTED = '#6b7280'
+    ACCENT = '#d6336c'
+    ACCENT_DARK = '#b02758'
+    HEADER_BG = '#151a24'
+    FONT = 'Microsoft YaHei UI'
+
+    def _setup_style(self):
+        style = ttk.Style(self)
         try:
-            ttk.Style(self).theme_use('vista')
+            style.theme_use('clam')
+        except Exception:
+            pass
+        f = self.FONT
+        style.configure('.', font=(f, 10), background=self.BASE_BG, foreground=self.TEXT)
+        style.configure('TFrame', background=self.BASE_BG)
+        style.configure('TLabel', background=self.BASE_BG, foreground=self.TEXT)
+        style.configure('Muted.TLabel', foreground=self.MUTED)
+        style.configure('Header.TFrame', background=self.HEADER_BG)
+        style.configure('HeaderTitle.TLabel', background=self.HEADER_BG,
+                        foreground='#ffffff', font=(f, 18, 'bold'))
+        style.configure('HeaderSub.TLabel', background=self.HEADER_BG,
+                        foreground='#9aa3b5', font=(f, 9))
+        style.configure('Card.TFrame', background=self.CARD_BG)
+        style.configure('Accent.TButton', background=self.ACCENT, foreground='#ffffff',
+                        borderwidth=0, focusthickness=0, padding=(16, 9),
+                        font=(f, 10, 'bold'))
+        style.map('Accent.TButton',
+                  background=[('active', self.ACCENT_DARK), ('pressed', self.ACCENT_DARK)])
+        style.configure('Ghost.TButton', background=self.CARD_BG, foreground=self.TEXT,
+                        borderwidth=0, focusthickness=0, padding=(12, 7), font=(f, 10))
+        style.map('Ghost.TButton', background=[('active', '#eef1f8'), ('pressed', '#e4e8f2')])
+        style.configure('HeaderGhost.TButton', background=self.HEADER_BG, foreground='#dfe4ee',
+                        borderwidth=0, padding=(12, 8), font=(f, 9))
+        style.map('HeaderGhost.TButton', background=[('active', '#262d3b')])
+        style.configure('TNotebook', background=self.BASE_BG, borderwidth=0,
+                        tabmargins=(0, 0, 0, 0))
+        style.configure('TNotebook.Tab', background='#e9ecf5', foreground=self.MUTED,
+                        padding=(20, 9), borderwidth=0, font=(f, 10))
+        style.map('TNotebook.Tab',
+                  background=[('selected', self.CARD_BG)],
+                  foreground=[('selected', self.ACCENT)])
+        style.configure('TEntry', fieldbackground=self.CARD_BG, bordercolor=self.BORDER,
+                        lightcolor=self.BORDER, darkcolor=self.BORDER, padding=6)
+        style.configure('Vertical.TScrollbar', background='#d9dde8',
+                        troughcolor=self.BASE_BG, borderwidth=0, arrowsize=12)
+
+    def _card(self, parent, title=None, subtitle=None, pady=(0, 10), expand=False):
+        outer = tk.Frame(parent, bg=self.CARD_BG, highlightbackground=self.BORDER,
+                         highlightthickness=1, bd=0)
+        outer.pack(fill='both' if expand else 'x', expand=expand, pady=pady)
+        inner = tk.Frame(outer, bg=self.CARD_BG)
+        inner.pack(fill='both', expand=True, padx=14, pady=12)
+        if title:
+            tk.Label(inner, text=title, bg=self.CARD_BG, fg=self.TEXT,
+                     font=(self.FONT, 11, 'bold')).pack(anchor='w')
+        if subtitle:
+            tk.Label(inner, text=subtitle, bg=self.CARD_BG, fg=self.MUTED,
+                     font=(self.FONT, 9)).pack(anchor='w', pady=(3, 0))
+        body = tk.Frame(inner, bg=self.CARD_BG)
+        body.pack(fill='both', expand=True, pady=(8, 0) if title else (0, 0))
+        return body
+
+    def _styled_listbox(self, parent, height=6):
+        frame = tk.Frame(parent, bg=self.CARD_BG, highlightbackground=self.BORDER,
+                         highlightthickness=1, bd=0)
+        lb = tk.Listbox(frame, height=height, bd=0, highlightthickness=0,
+                        bg='#fbfcff', fg=self.TEXT, selectbackground='#f7dbe7',
+                        selectforeground=self.TEXT, activestyle='none',
+                        font=(self.FONT, 10))
+        lb.pack(side='left', fill='both', expand=True, padx=2, pady=2)
+        sb = ttk.Scrollbar(frame, command=lb.yview)
+        sb.pack(side='right', fill='y')
+        lb.config(yscrollcommand=sb.set)
+        return frame, lb
+
+    def _init_icon(self):
+        try:
+            icon = Image.open(REPO / 'source' / 'favicon.png')
+            self._icon_img = ImageTk.PhotoImage(icon)
+            self.iconphoto(True, self._icon_img)
         except Exception:
             pass
 
-        header = ttk.Frame(self, padding=(14, 10, 14, 4))
-        header.pack(fill='x')
-        ttk.Label(header, text='Pomme 博客小工具', font=('Microsoft YaHei UI', 15, 'bold')).pack(side='left')
-        ttk.Button(header, text=' 进入博客 ', command=self.open_blog).pack(side='right', padx=6)
-        ttk.Button(header, text='GitHub 仓库', command=self.open_repo_page).pack(side='right', padx=4)
+    def _center_window(self):
+        w, h = 1080, 880
+        self.update_idletasks()
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        x = max(0, (sw - w) // 2)
+        y = max(0, (sh - h) // 2 - 20)
+        self.geometry('%dx%d+%d+%d' % (w, h, x, y))
 
-        nb = ttk.Notebook(self)
-        nb.pack(fill='both', expand=True, padx=12, pady=6)
-        self.tab_pdf = ttk.Frame(nb, padding=10)
-        self.tab_style = ttk.Frame(nb, padding=10)
-        self.tab_repo = ttk.Frame(nb, padding=10)
-        self.tab_status = ttk.Frame(nb, padding=10)
-        nb.add(self.tab_pdf, text='  上传周报 PDF  ')
-        nb.add(self.tab_style, text='  外观设置  ')
-        nb.add(self.tab_repo, text='  仓库管理  ')
-        nb.add(self.tab_status, text='  状态  ')
+    def _build_ui(self):
+        self._setup_style()
+        self._init_icon()
+        self._center_window()
+
+        header = ttk.Frame(self, style='Header.TFrame', padding=(22, 15))
+        header.pack(fill='x')
+        left = ttk.Frame(header, style='Header.TFrame')
+        left.pack(side='left')
+        ttk.Label(left, text='Pomme 博客小工具',
+                  style='HeaderTitle.TLabel').pack(anchor='w')
+        ttk.Label(left, text='%s   ·   %s' % (self.cfg['repo'], self.cfg['site_url']),
+                  style='HeaderSub.TLabel').pack(anchor='w', pady=(4, 0))
+        right = ttk.Frame(header, style='Header.TFrame')
+        right.pack(side='right')
+        ttk.Button(right, text='进入博客', style='Accent.TButton',
+                   command=self.open_blog).pack(side='right', padx=(10, 0))
+        ttk.Button(right, text='GitHub 仓库', style='HeaderGhost.TButton',
+                   command=self.open_repo_page).pack(side='right')
+
+        tk.Frame(self, bg=self.ACCENT, height=3).pack(fill='x')
+
+        # 底部状态栏先占位，避免被内容挤掉
+        self.status_bar = tk.Label(self, text='  就绪', anchor='w', bg='#e9ecf5',
+                                   fg=self.MUTED, font=(self.FONT, 9), padx=14, pady=6)
+        self.status_bar.pack(fill='x', side='bottom')
+
+        body = tk.Frame(self, bg=self.BASE_BG)
+        body.pack(fill='both', expand=True, padx=18, pady=(12, 10))
+
+        # 日志面板固定在下方
+        log_card = tk.Frame(body, bg='#161a23')
+        log_card.pack(fill='x', side='bottom', pady=(12, 0))
+        log_head = tk.Frame(log_card, bg='#161a23')
+        log_head.pack(fill='x', padx=14, pady=(9, 0))
+        tk.Label(log_head, text='运行日志', bg='#161a23', fg='#8b93a7',
+                 font=(self.FONT, 9, 'bold')).pack(side='left')
+        self.log_text = tk.Text(log_card, height=4, bd=0, highlightthickness=0, wrap='word',
+                                bg='#161a23', fg='#d7dae0', insertbackground='#d7dae0',
+                                font=('Consolas', 9), padx=14, pady=6)
+        self.log_text.pack(fill='x', padx=2, pady=(4, 8))
+
+        self.nb = nb = ttk.Notebook(body)
+        nb.pack(fill='both', expand=True)
+        self.tab_pdf = tk.Frame(nb, bg=self.BASE_BG)
+        self.tab_style = tk.Frame(nb, bg=self.BASE_BG)
+        self.tab_repo = tk.Frame(nb, bg=self.BASE_BG)
+        self.tab_status = tk.Frame(nb, bg=self.BASE_BG)
+        nb.add(self.tab_pdf, text='上传周报 PDF')
+        nb.add(self.tab_style, text='外观设置')
+        nb.add(self.tab_repo, text='仓库管理')
+        nb.add(self.tab_status, text='状态')
         self._build_pdf_tab()
         self._build_style_tab()
         self._build_repo_tab()
         self._build_status_tab()
 
-        log_frame = ttk.LabelFrame(self, text='运行日志', padding=6)
-        log_frame.pack(fill='both', expand=False, padx=12, pady=(0, 10))
-        self.log_text = tk.Text(log_frame, height=7, wrap='word', font=('Consolas', 9))
-        self.log_text.pack(side='left', fill='both', expand=True)
-        sb = ttk.Scrollbar(log_frame, command=self.log_text.yview)
-        sb.pack(side='right', fill='y')
-        self.log_text.config(yscrollcommand=sb.set)
         self.log('仓库：%s   站点：%s' % (self.cfg['repo'], self.cfg['site_url']))
 
     def _build_pdf_tab(self):
         f = self.tab_pdf
-        ttk.Label(f, text='① 选择 PDF 文件（可一次选多个；文章会自动放到 /周报/ 目录下）').pack(anchor='w')
-        row = ttk.Frame(f)
-        row.pack(fill='x', pady=4)
-        self.pdf_list = tk.Listbox(row, height=5)
-        self.pdf_list.pack(side='left', fill='both', expand=True)
-        btn = ttk.Frame(row)
-        btn.pack(side='left', padx=6, fill='y')
-        ttk.Button(btn, text='添加 PDF…', command=self.add_pdfs).pack(fill='x', pady=2)
-        ttk.Button(btn, text='移除选中', command=self.remove_pdf).pack(fill='x', pady=2)
-
-        form = ttk.LabelFrame(f, text='② 文章信息（可留空自动识别）', padding=8)
-        form.pack(fill='x', pady=8)
         self.var_title = tk.StringVar()
         self.var_date = tk.StringVar(value=time.strftime('%Y-%m-%d'))
         self.var_tags = tk.StringVar(value='周报')
         self.var_cat = tk.StringVar(value='周报')
-        rows = [('标题：', self.var_title), ('日期：', self.var_date),
-                ('标签（逗号分隔）：', self.var_tags), ('分类：', self.var_cat)]
-        for r, (label, var) in enumerate(rows):
-            ttk.Label(form, text=label).grid(row=r, column=0, sticky='e', pady=2)
-            ttk.Entry(form, textvariable=var, width=62).grid(row=r, column=1, sticky='we', pady=2, padx=4)
-        form.columnconfigure(1, weight=1)
 
-        btns = ttk.Frame(f)
-        btns.pack(fill='x', pady=6)
-        ttk.Button(btns, text='③ 上传并发布（自动转换、上传、等部署）',
+        c1 = self._card(f, '① 选择 PDF 文件',
+                        '可一次选多个；转换后自动放到 /周报/ 目录，并出现在周报列表里')
+        row = tk.Frame(c1, bg=self.CARD_BG)
+        row.pack(fill='x')
+        holder, self.pdf_list = self._styled_listbox(row, height=5)
+        holder.pack(side='left', fill='both', expand=True)
+        side = tk.Frame(row, bg=self.CARD_BG)
+        side.pack(side='left', padx=(12, 0), fill='y')
+        ttk.Button(side, text='添加 PDF…', style='Accent.TButton',
+                   command=self.add_pdfs).pack(fill='x')
+        ttk.Button(side, text='移除选中', style='Ghost.TButton',
+                   command=self.remove_pdf).pack(fill='x', pady=(8, 0))
+
+        c2 = self._card(f, '② 文章信息', '标题留空会自动识别；日期决定文章时间')
+        grid = tk.Frame(c2, bg=self.CARD_BG)
+        grid.pack(fill='x')
+        for r, (label, var) in enumerate([('标题', self.var_title), ('日期', self.var_date),
+                                          ('标签', self.var_tags), ('分类', self.var_cat)]):
+            tk.Label(grid, text=label, bg=self.CARD_BG, fg=self.MUTED,
+                     font=(self.FONT, 10)).grid(row=r, column=0, sticky='e', padx=(0, 12), pady=5)
+            ttk.Entry(grid, textvariable=var).grid(row=r, column=1, sticky='we', pady=5)
+        grid.columnconfigure(1, weight=1)
+
+        bottom = tk.Frame(f, bg=self.BASE_BG)
+        bottom.pack(fill='x', pady=(6, 0))
+        ttk.Button(bottom, text='③ 上传并发布', style='Accent.TButton',
                    command=self.start_upload).pack(side='left')
-        ttk.Label(btns, text='   单篇 50 页约 1~2 分钟').pack(side='left')
+        tk.Label(bottom, text='自动转换 → 上传 GitHub → 等待部署，单篇约 1~2 分钟',
+                 bg=self.BASE_BG, fg=self.MUTED,
+                 font=(self.FONT, 9)).pack(side='left', padx=14)
 
     def _build_style_tab(self):
         f = self.tab_style
-        ttk.Label(f, text='顶部背景（4:1 宽幅，会自动裁剪 + 压暗让白字清楚）').pack(anchor='w')
-        self.bg_preview = ttk.Label(f)
-        self.bg_preview.pack(pady=6)
-        box = ttk.LabelFrame(f, text='选择背景', padding=8)
-        box.pack(fill='x')
+        c1 = self._card(f, '顶部背景', '4:1 宽幅，自动裁剪并压暗，保证白色标题清晰')
+        self.bg_preview = tk.Label(c1, bg='#0d0f14', bd=0)
+        self.bg_preview.pack(pady=(0, 12))
+        choices = tk.Frame(c1, bg=self.CARD_BG)
+        choices.pack(anchor='w')
         for name in list(BG_PRESETS) + ['我的图片…']:
-            ttk.Radiobutton(box, text=name, value=name, variable=self.bg_choice,
-                            command=self._on_bg_choice).pack(anchor='w', pady=1)
+            tk.Radiobutton(choices, text=name, variable=self.bg_choice, value=name,
+                           command=self._on_bg_choice, bg=self.CARD_BG, fg=self.TEXT,
+                           activebackground=self.CARD_BG, selectcolor='#ffffff',
+                           font=(self.FONT, 10)).pack(side='left', padx=(0, 18))
 
-        info = ttk.LabelFrame(f, text='站点信息（保存后会一起发布）', padding=8)
-        info.pack(fill='x', pady=8)
+        c2 = self._card(f, '站点信息', '保存后会一起发布到网站')
         self.var_site_title = tk.StringVar()
         self.var_site_sub = tk.StringVar()
         self.var_site_author = tk.StringVar()
-        for r, (label, var) in enumerate([('站点标题：', self.var_site_title),
-                                          ('副标题：', self.var_site_sub),
-                                          ('作者：', self.var_site_author)]):
-            ttk.Label(info, text=label).grid(row=r, column=0, sticky='e', pady=2)
-            ttk.Entry(info, textvariable=var, width=46).grid(row=r, column=1, sticky='we', pady=2, padx=4)
-        info.columnconfigure(1, weight=1)
-        ttk.Button(f, text='保存并发布', command=self.start_style_save).pack(anchor='w', pady=8)
+        grid = tk.Frame(c2, bg=self.CARD_BG)
+        grid.pack(fill='x')
+        for r, (label, var) in enumerate([('站点标题', self.var_site_title),
+                                          ('副标题', self.var_site_sub),
+                                          ('作者', self.var_site_author)]):
+            tk.Label(grid, text=label, bg=self.CARD_BG, fg=self.MUTED,
+                     font=(self.FONT, 10)).grid(row=r, column=0, sticky='e', padx=(0, 12), pady=5)
+            ttk.Entry(grid, textvariable=var).grid(row=r, column=1, sticky='we', pady=5)
+        grid.columnconfigure(1, weight=1)
+
+        bottom = tk.Frame(f, bg=self.BASE_BG)
+        bottom.pack(fill='x', pady=(6, 0))
+        ttk.Button(bottom, text='保存并发布', style='Accent.TButton',
+                   command=self.start_style_save).pack(side='left')
 
     def _build_repo_tab(self):
         f = self.tab_repo
-        info = ttk.Frame(f)
-        info.pack(fill='x')
-        for i, (key, text) in enumerate([('repo', '仓库：-'), ('site', '站点：-'),
-                                         ('pages', 'Pages：-'), ('run', '最近部署：-')]):
-            lab = ttk.Label(info, text=text)
-            lab.grid(row=i // 2, column=i % 2, sticky='w', padx=(0, 24), pady=2)
-            self.status_labels[key] = lab
+        self.repo_info_label = tk.Label(f, text='加载中……', bg=self.BASE_BG, fg=self.MUTED,
+                                        font=(self.FONT, 9), anchor='w', justify='left')
+        self.repo_info_label.pack(fill='x', pady=(0, 10))
 
-        bar = ttk.Frame(f)
-        bar.pack(fill='x', pady=(8, 2))
-        ttk.Button(bar, text='上一级', command=self.repo_up).pack(side='left')
-        ttk.Button(bar, text='刷新', command=self.repo_refresh).pack(side='left', padx=4)
+        c1 = self._card(f, '仓库文件', '双击文件夹进入，双击文件直接编辑（保存后自动发布）', expand=True)
+        bar = tk.Frame(c1, bg=self.CARD_BG)
+        bar.pack(fill='x', pady=(0, 8))
+        ttk.Button(bar, text='⬆ 上一级', style='Ghost.TButton', command=self.repo_up).pack(side='left')
+        ttk.Button(bar, text='刷新', style='Ghost.TButton', command=self.repo_refresh).pack(side='left', padx=6)
         self.path_var = tk.StringVar(value='/')
-        ttk.Label(bar, text='路径：').pack(side='left', padx=(10, 0))
-        ttk.Entry(bar, textvariable=self.path_var, width=58, state='readonly').pack(side='left')
-        self.repo_list = tk.Listbox(f, height=10)
-        self.repo_list.pack(fill='both', expand=True, pady=4)
+        ttk.Entry(bar, textvariable=self.path_var, state='readonly').pack(
+            side='left', fill='x', expand=True, padx=(10, 0))
+        holder, self.repo_list = self._styled_listbox(c1, height=6)
+        holder.pack(fill='both', expand=True)
         self.repo_list.bind('<Double-Button-1>', lambda e: self.repo_open())
 
-        btns = ttk.Frame(f)
-        btns.pack(fill='x', pady=4)
-        ttk.Button(btns, text='打开 / 编辑', command=self.repo_open).pack(side='left')
-        ttk.Button(btns, text='上传文件…', command=self.repo_upload).pack(side='left', padx=4)
-        ttk.Button(btns, text='新建文件…', command=self.repo_new_file).pack(side='left')
-        ttk.Button(btns, text='删除', command=self.repo_delete).pack(side='left', padx=4)
+        btns = tk.Frame(c1, bg=self.CARD_BG)
+        btns.pack(fill='x', pady=(10, 0))
+        ttk.Button(btns, text='打开 / 编辑', style='Accent.TButton',
+                   command=self.repo_open).pack(side='left')
+        ttk.Button(btns, text='上传文件…', style='Ghost.TButton',
+                   command=self.repo_upload).pack(side='left', padx=8)
+        ttk.Button(btns, text='新建文件…', style='Ghost.TButton',
+                   command=self.repo_new_file).pack(side='left')
+        ttk.Button(btns, text='删除', style='Ghost.TButton',
+                   command=self.repo_delete).pack(side='left', padx=8)
 
-        admin = ttk.LabelFrame(f, text='仓库设置（需要管理员权限）', padding=8)
-        admin.pack(fill='x', pady=(6, 0))
-        ttk.Label(admin, text='仓库简介：').grid(row=0, column=0, sticky='e')
+        c2 = self._card(f, '仓库设置', '需要仓库管理员权限（Token 勾选 repo / Administration）')
+        grid = tk.Frame(c2, bg=self.CARD_BG)
+        grid.pack(fill='x')
+        tk.Label(grid, text='仓库简介', bg=self.CARD_BG, fg=self.MUTED,
+                 font=(self.FONT, 10)).grid(row=0, column=0, sticky='e', padx=(0, 12), pady=5)
         self.var_desc = tk.StringVar()
-        ttk.Entry(admin, textvariable=self.var_desc, width=56).grid(row=0, column=1, sticky='we', padx=4)
-        ttk.Button(admin, text='保存简介', command=self.save_description).grid(row=0, column=2, padx=2)
-        ttk.Label(admin, text='重命名仓库：').grid(row=1, column=0, sticky='e', pady=4)
+        ttk.Entry(grid, textvariable=self.var_desc).grid(row=0, column=1, sticky='we', pady=5)
+        ttk.Button(grid, text='保存', style='Ghost.TButton',
+                   command=self.save_description).grid(row=0, column=2, padx=(8, 0))
+        tk.Label(grid, text='仓库名', bg=self.CARD_BG, fg=self.MUTED,
+                 font=(self.FONT, 10)).grid(row=1, column=0, sticky='e', padx=(0, 12), pady=5)
         self.var_rename = tk.StringVar()
-        ttk.Entry(admin, textvariable=self.var_rename, width=56).grid(row=1, column=1, sticky='we', padx=4)
-        ttk.Button(admin, text='应用', command=self.rename_repo).grid(row=1, column=2, padx=2)
-        ttk.Button(admin, text='重新开启 / 修复 GitHub Pages', command=self.fix_pages).grid(
-            row=2, column=0, columnspan=3, sticky='w', pady=4)
-        admin.columnconfigure(1, weight=1)
+        ttk.Entry(grid, textvariable=self.var_rename).grid(row=1, column=1, sticky='we', pady=5)
+        ttk.Button(grid, text='重命名', style='Ghost.TButton',
+                   command=self.rename_repo).grid(row=1, column=2, padx=(8, 0))
+        grid.columnconfigure(1, weight=1)
+        ttk.Button(c2, text='重新开启 / 修复 GitHub Pages', style='Ghost.TButton',
+                   command=self.fix_pages).pack(anchor='w', pady=(10, 0))
 
     def _build_status_tab(self):
         f = self.tab_status
-        self.status_text = tk.Text(f, height=13, wrap='word', font=('Consolas', 9))
+        c = self._card(f, '运行状态', '仓库、Token、Pages、最近部署', expand=True)
+        self.status_text = tk.Text(c, height=13, bd=0, highlightthickness=0, wrap='word',
+                                   bg='#fbfcff', fg=self.TEXT, font=('Consolas', 9),
+                                   padx=10, pady=8)
         self.status_text.pack(fill='both', expand=True)
-        bar = ttk.Frame(f)
-        bar.pack(fill='x', pady=6)
-        ttk.Button(bar, text='刷新状态', command=self.refresh_status).pack(side='left')
-        ttk.Button(bar, text='设置 GitHub Token', command=self.ask_token).pack(side='left', padx=6)
-        ttk.Button(bar, text='打开 Actions',
+        bar = tk.Frame(c, bg=self.CARD_BG)
+        bar.pack(fill='x', pady=(10, 0))
+        ttk.Button(bar, text='刷新状态', style='Accent.TButton',
+                   command=self.refresh_status).pack(side='left')
+        ttk.Button(bar, text='设置 GitHub Token', style='Ghost.TButton',
+                   command=self.ask_token).pack(side='left', padx=8)
+        ttk.Button(bar, text='打开 Actions', style='Ghost.TButton',
                    command=lambda: webbrowser.open(self.repo_url() + '/actions')).pack(side='left')
 
     # ---------------- 通用 ----------------
@@ -542,13 +688,16 @@ class App(tk.Tk):
         self._fill_repo_list(entries)
         if not self.var_desc.get():
             self.var_desc.set(repo.get('description') or '')
-        self.status_labels['repo'].config(text='仓库：' + repo['full_name'])
-        self.status_labels['site'].config(text='站点：' + self.cfg['site_url'])
-        self.status_labels['pages'].config(
-            text='Pages：' + (pages.get('html_url') if pages else '未开启'))
-        if run:
-            self.status_labels['run'].config(
-                text='最近部署：%s / %s' % (run['status'], run.get('conclusion')))
+        pages_url = pages.get('html_url') if pages else '未开启'
+        run_text = ('%s / %s' % (run['status'], run.get('conclusion'))) if run else '未知'
+        self.repo_info_label.config(
+            text='仓库 %s   ·   站点 %s   ·   Pages %s   ·   最近部署 %s'
+                 % (repo['full_name'], self.cfg['site_url'], pages_url, run_text))
+        try:
+            self.status_bar.config(text='  %s   ·   %s   ·   Pages %s'
+                                    % (repo['full_name'], self.cfg['site_url'], pages_url))
+        except Exception:
+            pass
 
     def _fill_repo_list(self, entries):
         self.repo_list.delete(0, 'end')
@@ -760,7 +909,14 @@ class App(tk.Tk):
 
 def main():
     os.chdir(str(REPO))
-    App().mainloop()
+    app = App()
+    for arg in sys.argv[1:]:
+        if arg.startswith('--tab='):
+            try:
+                app.nb.select(int(arg.split('=', 1)[1]))
+            except Exception:
+                pass
+    app.mainloop()
 
 
 if __name__ == '__main__':
