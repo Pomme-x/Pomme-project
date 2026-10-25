@@ -106,6 +106,85 @@ def apply_site_config(text, title=None, subtitle=None, author=None):
     return text
 
 
+MENU_LINE_RE = re.compile(r'^menu:\s*$')
+MENU_ITEM_RE = re.compile(r'^\s+("(?:[^"\\]|\\.)*"|\'[^\']*\'|[^:]+?):\s*(.*?)\s*$')
+
+
+def _unquote(s):
+    s = s.strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in '"\'':
+        body = s[1:-1]
+        return body.replace('\\"', '"').replace('\\\\', '\\')
+    return s
+
+
+def menu_yaml_key(s):
+    s = str(s).replace('\\', '\\\\').replace('"', '\\"')
+    return '"%s"' % s
+
+
+def menu_yaml_val(s):
+    s = str(s).replace('\\', '\\\\').replace('"', '\\"')
+    return '"%s"' % s
+
+
+def parse_menu(text):
+    """从 _config.landscape.yml 文本里解析 menu 列表，返回 (items, start, end)。"""
+    lines = text.splitlines()
+    start = None
+    for idx, line in enumerate(lines):
+        if MENU_LINE_RE.match(line):
+            start = idx
+            break
+    if start is None:
+        return [], None, None
+    items = []
+    idx = start + 1
+    while idx < len(lines):
+        line = lines[idx]
+        if not line.strip():
+            idx += 1
+            continue
+        if not line[0].isspace():
+            break
+        m = MENU_ITEM_RE.match(line)
+        if m:
+            items.append({'label': _unquote(m.group(1)), 'url': _unquote(m.group(2))})
+        idx += 1
+    return items, start, idx
+
+
+def replace_menu_block(text, items):
+    lines = text.splitlines()
+    old_items, start, end = parse_menu(text)
+    if start is None:
+        block = ['menu:']
+        block += ['  %s: %s' % (menu_yaml_key(it['label']), menu_yaml_val(it['url'])) for it in items]
+        return text.rstrip('\n') + '\n\n' + '\n'.join(block) + '\n'
+    block = ['menu:']
+    block += ['  %s: %s' % (menu_yaml_key(it['label']), menu_yaml_val(it['url'])) for it in items]
+    new_lines = lines[:start] + block + lines[end:]
+    return '\n'.join(new_lines) + ('\n' if text.endswith('\n') else '')
+
+
+def page_path_for(url):
+    """把 /notes 这样的链接转成 source/notes/index.md；根路径/外部链接返回 None。"""
+    u = (url or '').strip()
+    if not u or not u.startswith('/'):
+        return None
+    slug = u.strip('/')
+    if not slug:
+        return None
+    return 'source/%s/index.md' % slug
+
+
+def page_markdown(label, now=None):
+    now = now or time.strftime('%Y-%m-%d %H:%M:%S')
+    return ('---\ntitle: %s\ndate: %s\ntype: page\n---\n\n'
+            '这里是「%s」页面。可以在「仓库管理」里编辑这篇文件写内容，也可以上传图片后引用。\n'
+            % (menu_yaml_val(label), now, label))
+
+
 def make_banner(src, size=(1920, 480), bright=0.86):
     import io
     from PIL import ImageEnhance
@@ -306,16 +385,20 @@ class App(tk.Tk):
         nb.pack(fill='both', expand=True)
         self.tab_pdf = tk.Frame(nb, bg=self.BASE_BG)
         self.tab_style = tk.Frame(nb, bg=self.BASE_BG)
+        self.tab_menu = tk.Frame(nb, bg=self.BASE_BG)
         self.tab_repo = tk.Frame(nb, bg=self.BASE_BG)
         self.tab_status = tk.Frame(nb, bg=self.BASE_BG)
         nb.add(self.tab_pdf, text='上传周报 PDF')
         nb.add(self.tab_style, text='外观设置')
+        nb.add(self.tab_menu, text='导航菜单')
         nb.add(self.tab_repo, text='仓库管理')
         nb.add(self.tab_status, text='状态')
         self._build_pdf_tab()
         self._build_style_tab()
+        self._build_menu_tab()
         self._build_repo_tab()
         self._build_status_tab()
+        self.nb.bind('<<NotebookTabChanged>>', self._on_tab_changed)
 
         self.log('仓库：%s   站点：%s' % (self.cfg['repo'], self.cfg['site_url']))
 
@@ -388,6 +471,209 @@ class App(tk.Tk):
         bottom.pack(fill='x', pady=(6, 0))
         ttk.Button(bottom, text='保存并发布', style='Accent.TButton',
                    command=self.start_style_save).pack(side='left')
+
+    def _build_menu_tab(self):
+        f = self.tab_menu
+        self.menu_items = []
+        self.pending_pages = {}
+        c = self._card(f, '顶部导航菜单',
+                       '这里改的就是网站最上面那排（Home / Archives / 周报 / 关于）；'
+                       '也可以添加自己的页面并顺带创建', expand=True)
+        holder, self.menu_list = self._styled_listbox(c, height=7)
+        holder.pack(fill='both', expand=True)
+        btns = tk.Frame(c, bg=self.CARD_BG)
+        btns.pack(fill='x', pady=(10, 0))
+        ttk.Button(btns, text='添加菜单', style='Accent.TButton',
+                   command=self.menu_add).pack(side='left')
+        ttk.Button(btns, text='编辑', style='Ghost.TButton',
+                   command=self.menu_edit).pack(side='left', padx=8)
+        ttk.Button(btns, text='删除', style='Ghost.TButton',
+                   command=self.menu_delete).pack(side='left')
+        ttk.Button(btns, text='↑ 上移', style='Ghost.TButton',
+                   command=lambda: self.menu_move(-1)).pack(side='left', padx=8)
+        ttk.Button(btns, text='↓ 下移', style='Ghost.TButton',
+                   command=lambda: self.menu_move(1)).pack(side='left')
+        save = tk.Frame(f, bg=self.BASE_BG)
+        save.pack(fill='x', pady=(8, 0))
+        ttk.Button(save, text='保存并发布', style='Accent.TButton',
+                   command=self.menu_save).pack(side='left')
+        tk.Label(save, text='保存后自动提交，约 1 分钟网站顶部导航更新',
+                 bg=self.BASE_BG, fg=self.MUTED, font=(self.FONT, 9)).pack(side='left', padx=12)
+
+    def _on_tab_changed(self, _event=None):
+        try:
+            current = self.nb.select()
+            if str(current) == str(self.tab_menu) and not self.menu_items:
+                self.menu_refresh()
+        except Exception:
+            pass
+
+    def menu_refresh(self):
+        api = self.api or get_api(self.cfg)
+        if not api:
+            return
+
+        def job():
+            try:
+                text, _ = api.get_text('_config.landscape.yml')
+                items, _, _ = parse_menu(text or '')
+                self.ui(self._apply_menu, items, text)
+            except Exception as e:
+                self.log('读取导航菜单失败：%s' % e)
+
+        threading.Thread(target=job, daemon=True).start()
+
+    def _apply_menu(self, items, text=None):
+        self.menu_items = items
+        self._fill_menu_list()
+        self.log('导航菜单：%d 项' % len(items))
+
+    def _fill_menu_list(self):
+        self.menu_list.delete(0, 'end')
+        for it in self.menu_items:
+            self.menu_list.insert('end', '  %s      →      %s' % (it['label'], it['url']))
+
+    def _menu_dialog(self, title='添加菜单', item=None):
+        win = tk.Toplevel(self)
+        win.title(title)
+        win.transient(self)
+        win.grab_set()
+        win.configure(bg=self.CARD_BG)
+        win.resizable(False, False)
+        frame = tk.Frame(win, bg=self.CARD_BG)
+        frame.pack(fill='both', expand=True, padx=20, pady=16)
+        tk.Label(frame, text='显示名称', bg=self.CARD_BG, fg=self.MUTED,
+                 font=(self.FONT, 10)).grid(row=0, column=0, sticky='e', pady=5)
+        var_label = tk.StringVar(value=(item or {}).get('label', ''))
+        ttk.Entry(frame, textvariable=var_label, width=38).grid(row=0, column=1, padx=(10, 0), pady=5)
+        tk.Label(frame, text='链接', bg=self.CARD_BG, fg=self.MUTED,
+                 font=(self.FONT, 10)).grid(row=1, column=0, sticky='e', pady=5)
+        var_url = tk.StringVar(value=(item or {}).get('url', '/'))
+        ttk.Entry(frame, textvariable=var_url, width=38).grid(row=1, column=1, padx=(10, 0), pady=5)
+        tk.Label(frame, text='站内路径（/notes）或完整网址（https://…）', bg=self.CARD_BG,
+                 fg=self.MUTED, font=(self.FONT, 9)).grid(row=2, column=1, sticky='w', padx=(10, 0))
+
+        var_create = tk.BooleanVar(value=False)
+        var_page = tk.StringVar(value='')
+        chk = tk.Checkbutton(frame, text='同时创建这个页面（生成占位文章，之后可编辑）',
+                             variable=var_create, bg=self.CARD_BG, fg=self.TEXT,
+                             activebackground=self.CARD_BG, selectcolor='#ffffff',
+                             font=(self.FONT, 9), command=lambda: toggle())
+        chk.grid(row=3, column=0, columnspan=2, sticky='w', pady=(12, 4))
+        tk.Label(frame, text='页面文件', bg=self.CARD_BG, fg=self.MUTED,
+                 font=(self.FONT, 10)).grid(row=4, column=0, sticky='e', pady=5)
+        page_entry = ttk.Entry(frame, textvariable=var_page, width=38, state='disabled')
+        page_entry.grid(row=4, column=1, padx=(10, 0), pady=5)
+
+        def refresh_page_path(*_):
+            p = page_path_for(var_url.get())
+            via = ''
+            if p:
+                via = p
+            var_page.set(via)
+            if p and not var_create.get():
+                var_create.set(True)
+                toggle()
+            if not p and var_create.get():
+                var_create.set(False)
+                toggle()
+
+        def toggle():
+            page_entry.config(state='normal' if var_create.get() else 'disabled')
+
+        var_url.trace_add('write', refresh_page_path)
+        refresh_page_path()
+
+        result = {}
+
+        def submit():
+            label = var_label.get().strip()
+            url = var_url.get().strip()
+            if not label or not url:
+                messagebox.showwarning('提示', '名称和链接都要填', parent=win)
+                return
+            result.update(label=label, url=url,
+                          create=bool(var_create.get() and var_page.get().strip()),
+                          page=var_page.get().strip())
+            win.destroy()
+
+        bar = tk.Frame(frame, bg=self.CARD_BG)
+        bar.grid(row=5, column=0, columnspan=2, sticky='e', pady=(16, 0))
+        ttk.Button(bar, text='确定', style='Accent.TButton', command=submit).pack(side='left')
+        ttk.Button(bar, text='取消', style='Ghost.TButton', command=win.destroy).pack(side='left', padx=8)
+        win.wait_window()
+        return result or None
+
+    def menu_add(self):
+        data = self._menu_dialog('添加菜单')
+        if not data:
+            return
+        self.menu_items.append({'label': data['label'], 'url': data['url']})
+        if data['create']:
+            self.pending_pages[data['page']] = page_markdown(data['label'])
+            self.log('将创建页面：%s' % data['page'])
+        self._fill_menu_list()
+
+    def menu_edit(self):
+        sel = self.menu_list.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        data = self._menu_dialog('编辑菜单', self.menu_items[idx])
+        if not data:
+            return
+        self.menu_items[idx] = {'label': data['label'], 'url': data['url']}
+        if data['create']:
+            self.pending_pages[data['page']] = page_markdown(data['label'])
+        self._fill_menu_list()
+
+    def menu_delete(self):
+        sel = self.menu_list.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        if messagebox.askyesno('确认删除', '删除菜单「%s」吗？' % self.menu_items[idx]['label']):
+            self.menu_items.pop(idx)
+            self._fill_menu_list()
+
+    def menu_move(self, delta):
+        sel = self.menu_list.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        new = idx + delta
+        if 0 <= new < len(self.menu_items):
+            self.menu_items[idx], self.menu_items[new] = self.menu_items[new], self.menu_items[idx]
+            self._fill_menu_list()
+            self.menu_list.selection_set(new)
+
+    def menu_save(self):
+        if not self.menu_items:
+            messagebox.showwarning('提示', '菜单不能为空')
+            return
+        api = self.api or get_api(self.cfg)
+        if not api:
+            messagebox.showwarning('提示', '先设置 GitHub Token（状态页）')
+            return
+
+        def job():
+            try:
+                text, _ = api.get_text('_config.landscape.yml')
+                new_text = replace_menu_block(text or '', self.menu_items)
+                files = {'_config.landscape.yml': new_text.encode('utf-8')}
+                for path, content in self.pending_pages.items():
+                    files[path] = content.encode('utf-8')
+                sha = api.commit_files(files, 'nav: 更新顶部导航菜单')
+                self.pending_pages.clear()
+                (REPO / '_config.landscape.yml').write_text(new_text, encoding='utf-8', newline='\n')
+                state = api.run_status(sha, log=self.log)
+                self.log('✅ 导航菜单已发布（%s）' % state)
+                self.ui(self.menu_refresh)
+            except Exception as e:
+                self.log('❌ 保存菜单失败：%s' % e)
+                self.ui(messagebox.showerror, '保存失败', str(e))
+
+        threading.Thread(target=job, daemon=True).start()
 
     def _build_repo_tab(self):
         f = self.tab_repo
@@ -503,6 +789,7 @@ class App(tk.Tk):
             self.ui(self._load_site_info)
             self.ui(self.refresh_status)
             self.ui(self.repo_refresh)
+            self.ui(self.menu_refresh)
         except Exception as e:
             self.log('Token 校验失败：%s' % e)
 
