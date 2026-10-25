@@ -1,7 +1,7 @@
 ---
-title: "Wp"
-date: 2026-10-25 22:47:06
+title: Wp
+date: 2026-10-25 20:00:00
 type: page
 ---
 
-这里是「Wp」页面。可以在「仓库管理」里编辑这篇文件写内容，也可以上传图片后引用。
+<div class="section-list" data-section="Wp"></div>

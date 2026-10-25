@@ -178,6 +178,70 @@ def page_path_for(url):
     return 'source/%s/index.md' % slug
 
 
+def parse_front_matter(text):
+    """解析文章 front-matter，返回 (data, body)。data: title/date/tags/categories/permalink"""
+    data = {'title': '', 'date': '', 'tags': [], 'categories': [], 'permalink': ''}
+    m = re.match(r'^---\s*\n(.*?)\n---\s*\n?', text, re.S)
+    if not m:
+        return data, text
+    fm, body = m.group(1), text[m.end():]
+    key = None
+    for line in fm.splitlines():
+        lm = re.match(r'^\s*-\s+(.*)$', line)
+        if lm and key in ('tags', 'categories'):
+            data[key].append(_unquote(lm.group(1)))
+            continue
+        km = re.match(r'^([A-Za-z_]+):\s*(.*)$', line)
+        if not km:
+            continue
+        k, v = km.group(1), km.group(2).strip()
+        if k in ('tags', 'categories'):
+            key = k
+            data[k] = []
+            if v.startswith('[') and v.endswith(']'):
+                inner = v[1:-1].strip()
+                if inner:
+                    data[k] = [_unquote(x) for x in inner.split(',')]
+                key = None
+        elif k in ('title', 'date', 'permalink'):
+            data[k] = _unquote(v)
+            key = None
+    return data, body
+
+
+def build_front_matter(data, body):
+    def q(v):
+        return '"%s"' % str(v).replace('\\', '\\\\').replace('"', '\\"')
+
+    lines = ['---', 'title: %s' % q(data.get('title', '')),
+             'date: %s' % str(data.get('date') or time.strftime('%Y-%m-%d %H:%M:%S')).strip()]
+    if data.get('tags'):
+        lines.append('tags:')
+        lines += ['  - %s' % q(t) for t in data['tags']]
+    if data.get('categories'):
+        lines.append('categories:')
+        lines += ['  - %s' % q(c) for c in data['categories']]
+    if data.get('permalink'):
+        lines.append('permalink: %s' % q(data['permalink']))
+    lines.append('---')
+    return '\n'.join(lines) + '\n\n' + body.lstrip('\n')
+
+
+def article_slug(path, permalink):
+    if permalink:
+        tail = permalink.rstrip('/').split('/')[-1]
+        if tail:
+            return tail
+    stem = Path(path).stem
+    return re.sub(r'^\d{4}-\d{2}-\d{2}-', '', stem) or 'post'
+
+
+def section_page_markdown(section):
+    return ('---\ntitle: %s\ndate: %s\ntype: page\n---\n\n'
+            '<div class="section-list" data-section="%s"></div>\n'
+            % (menu_yaml_val(section), time.strftime('%Y-%m-%d %H:%M:%S'), section))
+
+
 def page_markdown(label, now=None):
     now = now or time.strftime('%Y-%m-%d %H:%M:%S')
     return ('---\ntitle: %s\ndate: %s\ntype: page\n---\n\n'
@@ -386,16 +450,19 @@ class App(tk.Tk):
         self.tab_pdf = tk.Frame(nb, bg=self.BASE_BG)
         self.tab_style = tk.Frame(nb, bg=self.BASE_BG)
         self.tab_menu = tk.Frame(nb, bg=self.BASE_BG)
+        self.tab_articles = tk.Frame(nb, bg=self.BASE_BG)
         self.tab_repo = tk.Frame(nb, bg=self.BASE_BG)
         self.tab_status = tk.Frame(nb, bg=self.BASE_BG)
         nb.add(self.tab_pdf, text='上传周报 PDF')
         nb.add(self.tab_style, text='外观设置')
         nb.add(self.tab_menu, text='导航菜单')
+        nb.add(self.tab_articles, text='文章管理')
         nb.add(self.tab_repo, text='仓库管理')
         nb.add(self.tab_status, text='状态')
         self._build_pdf_tab()
         self._build_style_tab()
         self._build_menu_tab()
+        self._build_articles_tab()
         self._build_repo_tab()
         self._build_status_tab()
         self.nb.bind('<<NotebookTabChanged>>', self._on_tab_changed)
@@ -502,9 +569,11 @@ class App(tk.Tk):
 
     def _on_tab_changed(self, _event=None):
         try:
-            current = self.nb.select()
-            if str(current) == str(self.tab_menu) and not self.menu_items:
+            current = str(self.nb.select())
+            if current == str(self.tab_menu) and not self.menu_items:
                 self.menu_refresh()
+            if current == str(self.tab_articles) and not self.articles:
+                self.articles_refresh()
         except Exception:
             pass
 
@@ -675,6 +744,236 @@ class App(tk.Tk):
 
         threading.Thread(target=job, daemon=True).start()
 
+    def _build_articles_tab(self):
+        f = self.tab_articles
+        self.articles = []
+        c = self._card(f, '文章管理',
+                       '改分类/标签会同步更新分类页和标签云；也可以删除文章或移动到其它分区',
+                       expand=True)
+        holder, self.article_list = self._styled_listbox(c, height=9)
+        holder.pack(fill='both', expand=True)
+        btns = tk.Frame(c, bg=self.CARD_BG)
+        btns.pack(fill='x', pady=(10, 0))
+        ttk.Button(btns, text='编辑信息', style='Accent.TButton',
+                   command=self.article_edit).pack(side='left')
+        ttk.Button(btns, text='移动到分区', style='Ghost.TButton',
+                   command=self.article_move).pack(side='left', padx=8)
+        ttk.Button(btns, text='删除文章', style='Ghost.TButton',
+                   command=self.article_delete).pack(side='left')
+        ttk.Button(btns, text='刷新', style='Ghost.TButton',
+                   command=self.articles_refresh).pack(side='left', padx=8)
+
+    def articles_refresh(self):
+        api = self.api or get_api(self.cfg)
+        if not api:
+            return
+
+        def job():
+            try:
+                entries = [e for e in api.list_dir('source/_posts')
+                           if e['type'] == 'file' and e['name'].lower().endswith('.md')]
+                articles = []
+                for e in entries:
+                    text, _ = api.get_text(e['path'])
+                    data, body = parse_front_matter(text or '')
+                    data['path'] = e['path']
+                    data['body'] = body
+                    articles.append(data)
+                articles.sort(key=lambda a: str(a.get('date')), reverse=True)
+                self.ui(self._apply_articles, articles)
+            except Exception as e:
+                self.log('读取文章失败：%s' % e)
+
+        threading.Thread(target=job, daemon=True).start()
+
+    def _apply_articles(self, articles):
+        self.articles = articles
+        self.article_list.delete(0, 'end')
+        for a in articles:
+            cats = '/'.join(a.get('categories') or []) or '未分类'
+            self.article_list.insert('end', '  %s   %s      [%s]'
+                                     % (str(a.get('date', ''))[:10], a.get('title', ''), cats))
+        self.log('文章：%d 篇' % len(articles))
+
+    def _selected_article(self):
+        sel = self.article_list.curselection()
+        if not sel:
+            return None
+        idx = sel[0]
+        if idx >= len(self.articles):
+            return None
+        return self.articles[idx]
+
+    def _article_dialog(self, title, article):
+        win = tk.Toplevel(self)
+        win.title(title)
+        win.transient(self)
+        win.grab_set()
+        win.configure(bg=self.CARD_BG)
+        win.resizable(False, False)
+        frame = tk.Frame(win, bg=self.CARD_BG)
+        frame.pack(fill='both', expand=True, padx=20, pady=16)
+        fields = [('标题', 'title'), ('日期', 'date'), ('分类（逗号分隔）', 'categories'),
+                  ('标签（逗号分隔）', 'tags'), ('永久链接', 'permalink')]
+        vars_ = {}
+        for r, (label, key) in enumerate(fields):
+            tk.Label(frame, text=label, bg=self.CARD_BG, fg=self.MUTED,
+                     font=(self.FONT, 10)).grid(row=r, column=0, sticky='e', padx=(0, 12), pady=5)
+            val = article.get(key) or ''
+            if isinstance(val, list):
+                val = '，'.join(val)
+            vars_[key] = tk.StringVar(value=val)
+            ttk.Entry(frame, textvariable=vars_[key], width=56).grid(row=r, column=1, pady=5)
+        tk.Label(frame, text='分类和标签决定文章出现在哪个分区、分类页、标签云',
+                 bg=self.CARD_BG, fg=self.MUTED,
+                 font=(self.FONT, 9)).grid(row=len(fields), column=1, sticky='w')
+        result = {}
+
+        def submit():
+            data = {}
+            for key, var in vars_.items():
+                v = var.get().strip()
+                if key in ('categories', 'tags'):
+                    data[key] = [x.strip() for x in re.split(r'[,，]', v) if x.strip()]
+                else:
+                    data[key] = v
+            if not data['title']:
+                messagebox.showwarning('提示', '标题不能为空', parent=win)
+                return
+            result.update(data)
+            win.destroy()
+
+        bar = tk.Frame(frame, bg=self.CARD_BG)
+        bar.grid(row=len(fields) + 1, column=0, columnspan=2, sticky='e', pady=(14, 0))
+        ttk.Button(bar, text='保存', style='Accent.TButton', command=submit).pack(side='left')
+        ttk.Button(bar, text='取消', style='Ghost.TButton', command=win.destroy).pack(side='left', padx=8)
+        win.wait_window()
+        return result or None
+
+    def article_edit(self):
+        article = self._selected_article()
+        if not article:
+            return
+        data = self._article_dialog('编辑文章', article)
+        if not data:
+            return
+        api = self.api or get_api(self.cfg)
+        path = article['path']
+        body = article.get('body', '')
+        new_text = build_front_matter(data, body)
+        try:
+            sha = api.commit_files({path: new_text.encode('utf-8')},
+                                   'edit: 更新文章《%s》' % data['title'])
+            local = REPO / path
+            local.parent.mkdir(parents=True, exist_ok=True)
+            local.write_text(new_text, encoding='utf-8', newline='\n')
+            state = api.run_status(sha, log=self.log)
+            self.log('✅ 文章已更新（%s）' % state)
+            self.articles_refresh()
+        except Exception as e:
+            messagebox.showerror('保存失败', str(e))
+
+    def article_delete(self):
+        article = self._selected_article()
+        if not article:
+            return
+        if not messagebox.askyesno('确认删除',
+                                   '删除文章《%s》吗？\n（会同时尝试删除它引用的图片）' % article['title']):
+            return
+        api = self.api or get_api(self.cfg)
+        body = article.get('body', '')
+        imgs = set(re.findall(r'!\[[^\]]*\]\(/images/([^)\s"]+)', body))
+        deletions = [article['path']]
+        for i in imgs:
+            deletions.append('source/images/' + i)
+
+        def job():
+            try:
+                sha = api.commit_files({}, 'delete: 删除文章《%s》' % article['title'],
+                                       deletions=deletions)
+                state = api.run_status(sha, log=self.log)
+                self.log('✅ 已删除（%s）' % state)
+                self.ui(self.articles_refresh)
+            except Exception as e:
+                self.log('删除失败：%s' % e)
+                self.ui(messagebox.showerror, '删除失败', str(e))
+
+        threading.Thread(target=job, daemon=True).start()
+
+    def article_move(self):
+        article = self._selected_article()
+        if not article:
+            return
+        win = tk.Toplevel(self)
+        win.title('移动到分区')
+        win.transient(self)
+        win.grab_set()
+        win.configure(bg=self.CARD_BG)
+        frame = tk.Frame(win, bg=self.CARD_BG)
+        frame.pack(fill='both', expand=True, padx=20, pady=16)
+        tk.Label(frame, text='目标分区（例如 周报、Wp、笔记）', bg=self.CARD_BG,
+                 fg=self.MUTED, font=(self.FONT, 10)).pack(anchor='w')
+        var_target = tk.StringVar(value=(article.get('categories') or [''])[0])
+        ttk.Entry(frame, textvariable=var_target, width=32).pack(anchor='w', pady=6)
+        var_page = tk.BooleanVar(value=True)
+        var_nav = tk.BooleanVar(value=True)
+        tk.Checkbutton(frame, text='分区页不存在时自动创建（自动列出该分区文章）',
+                       variable=var_page, bg=self.CARD_BG, selectcolor='#ffffff',
+                       font=(self.FONT, 9)).pack(anchor='w', pady=2)
+        tk.Checkbutton(frame, text='同时把分区加到顶部导航菜单',
+                       variable=var_nav, bg=self.CARD_BG, selectcolor='#ffffff',
+                       font=(self.FONT, 9)).pack(anchor='w', pady=2)
+        result = {}
+
+        def submit():
+            target = var_target.get().strip().strip('/')
+            if not target:
+                messagebox.showwarning('提示', '分区名不能为空', parent=win)
+                return
+            result.update(target=target, page=bool(var_page.get()), nav=bool(var_nav.get()))
+            win.destroy()
+
+        bar = tk.Frame(frame, bg=self.CARD_BG)
+        bar.pack(anchor='e', pady=(14, 0))
+        ttk.Button(bar, text='移动', style='Accent.TButton', command=submit).pack(side='left')
+        ttk.Button(bar, text='取消', style='Ghost.TButton', command=win.destroy).pack(side='left', padx=8)
+        win.wait_window()
+        if not result:
+            return
+        api = self.api or get_api(self.cfg)
+        target = result['target']
+        slug = article_slug(article['path'], article.get('permalink'))
+
+        def job():
+            try:
+                data = {'title': article['title'], 'date': article['date'],
+                        'categories': [target], 'tags': [target],
+                        'permalink': '%s/%s/' % (target, slug)}
+                files = {article['path']: build_front_matter(data, article.get('body', '')).encode('utf-8')}
+                if result['page']:
+                    page_path = 'source/%s/index.md' % target
+                    existing, _ = api.get_file(page_path)
+                    if existing is None:
+                        files[page_path] = section_page_markdown(target).encode('utf-8')
+                        self.log('将创建分区页：' + page_path)
+                if result['nav']:
+                    text, _ = api.get_text('_config.landscape.yml')
+                    items, _, _ = parse_menu(text or '')
+                    if not any(it['label'] == target for it in items):
+                        items.append({'label': target, 'url': '/' + target})
+                        files['_config.landscape.yml'] = replace_menu_block(text or '', items).encode('utf-8')
+                        self.log('将分区加入顶部导航')
+                sha = api.commit_files(files, 'move: 把《%s》移动到分区 %s' % (article['title'], target))
+                state = api.run_status(sha, log=self.log)
+                self.log('✅ 已移动（%s）：%s%s/' % (state, self.cfg['site_url'], target))
+                self.ui(self.articles_refresh)
+                self.ui(self.menu_refresh)
+            except Exception as e:
+                self.log('移动失败：%s' % e)
+                self.ui(messagebox.showerror, '移动失败', str(e))
+
+        threading.Thread(target=job, daemon=True).start()
+
     def _build_repo_tab(self):
         f = self.tab_repo
         self.repo_info_label = tk.Label(f, text='加载中……', bg=self.BASE_BG, fg=self.MUTED,
@@ -790,6 +1089,7 @@ class App(tk.Tk):
             self.ui(self.refresh_status)
             self.ui(self.repo_refresh)
             self.ui(self.menu_refresh)
+            self.ui(self.articles_refresh)
         except Exception as e:
             self.log('Token 校验失败：%s' % e)
 
