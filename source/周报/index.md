@@ -12,7 +12,7 @@ type: page
 
 因为已将有些忘了，所以复习一下加深印象
 
-![第2页图片](/images/weekly/w02_1.png)
+![第2页图片](/images/weekly/w02_1.jpg)
 
 这个是一个简单的加密，类似于凯撒移位，就是给你输入的每个字符都向后加一，然后与代码中给的进行比较，如果一样则正确
 
@@ -47,7 +47,7 @@ int main()
 }
 ```
 
-![第3页图片](/images/weekly/w03_2.png)
+![第3页图片](/images/weekly/w03_2.jpg)
 
 执行成功，解密完成/\*感觉挺有成就感，虽然是跟着老师讲的，但也是自己跟着一步步做出来的，学进了脑子里\*/
 
@@ -64,7 +64,7 @@ print(target)
 
 我不知道为什么target = bytearray(b'gmbh|ZPV`GJOE`JU`IBIB~')中前面要带一个b，把它去掉试试
 
-![第4页图片](/images/weekly/w04_3.png)
+![第4页图片](/images/weekly/w04_3.jpg)
 
 报错了，不知道原因，查了查：Python中的bytearray()不能直接接收普通字符串，字符串要转字节，必须指定编码（比如utf-8）/\*我的vscode总是代码写的对的，运行出来是乱码因为这个我之前弄了好久\*/或者直接传字节串（b"xxx"）
 
@@ -79,7 +79,7 @@ print(target.decode('utf-8'))
 
 #### 第二个视频：三叶草二进制招新培训3 - 简单的加密算法2
 
-![第4页图片](/images/weekly/w04_4.png)
+![第4页图片](/images/weekly/w04_4.jpg)
 
 讲的异或运算，异或出现的频率非常高，它是一个二元运算，这是它的运算符号^。
 
@@ -105,23 +105,23 @@ return 0;
 
 Str2中有一个不可见字符（0x7F）会导致ida中不会将Str2直接识别为字符，所以需要用Str2来表示这一串字符
 
-![第5页图片](/images/weekly/w05_5.png)
+![第5页图片](/images/weekly/w05_5.jpg)
 
 将这传数据转换成BYTE列表 /\*我们要对其中的每一个字节进行操作
 
 跟着无名侠尝试写python解密
 
-![第5页图片](/images/weekly/w05_6.png)
+![第5页图片](/images/weekly/w05_6.jpg)
 
 一开始输出为一串数字，为改为输出为(UTF-8)格式，修改代码成功
 
-![第6页图片](/images/weekly/w06_7.png)
+![第6页图片](/images/weekly/w06_7.jpg)
 
 因为是纯手打可能有点慢，我没有他的那个题只能将它抄下来
 
-![第6页图片](/images/weekly/w06_8.jpeg)
+![第6页图片](/images/weekly/w06_8.jpg)
 
-![第7页图片](/images/weekly/w07_9.jpeg)
+![第7页图片](/images/weekly/w07_9.jpg)
 
 后面是解密代码
 
@@ -135,7 +135,7 @@ date = bytes(date)
 print(date.decode('utf-8'))
 ```
 
-![第8页图片](/images/weekly/w08_10.png)
+![第8页图片](/images/weekly/w08_10.jpg)
 
 可以运行，但是少了点字符，可能是我抄错了
 
@@ -150,7 +150,7 @@ date = bytes(date)
 print(date.decode('utf-8'))
 ```
 
-![第8页图片](/images/weekly/w08_11.png)
+![第8页图片](/images/weekly/w08_11.jpg)
 
 现在好了
 
@@ -176,33 +176,33 @@ Python中的bytearray()不能直接接收普通字符串，字符串要转字节
 
 #### 简单XOR
 
-![第9页图片](/images/weekly/w09_12.png)
+![第9页图片](/images/weekly/w09_12.jpg)
 
 发现这道题做过了，做下一道题
 
-![第10页图片](/images/weekly/w10_13.png)
+![第10页图片](/images/weekly/w10_13.jpg)
 
 先用DIE查看
 
-![第11页图片](/images/weekly/w11_14.png)
+![第11页图片](/images/weekly/w11_14.jpg)
 
 PE32位，控制台程序
 
-![第11页图片](/images/weekly/w11_15.png)
+![第11页图片](/images/weekly/w11_15.jpg)
 
 控制台运行，需要输入正确的flag，用IDA打开/\*从程序名字可以看出来这是一道简单的XOR加密\*/
 
-![第12页图片](/images/weekly/w12_16.png)
+![第12页图片](/images/weekly/w12_16.jpg)
 
 上面是main函数，有明显的XOR，点开查看
 
-![第13页图片](/images/weekly/w13_17.png)
+![第13页图片](/images/weekly/w13_17.jpg)
 
 这个是XOR加密黑盒
 
 写解密代码我不理解为什么vscode要让我
 
-![第13页图片](/images/weekly/w13_18.png)
+![第13页图片](/images/weekly/w13_18.jpg)
 
 在plain前加一个\*
 
@@ -238,7 +238,7 @@ plain﻿ 指向的内容也就是解密后的字符串，﻿printf("%s", plain)�
 
 Lit8TF{XOR_1s_3asy_to_OR}
 
-![第14页图片](/images/weekly/w14_19.png)
+![第14页图片](/images/weekly/w14_19.jpg)
 
 这些是之前做的，python的不想做（不会）
 
@@ -248,19 +248,19 @@ IDA打开就可以看到
 
 但还是用DIE查看一下
 
-![第15页图片](/images/weekly/w15_20.png)
+![第15页图片](/images/weekly/w15_20.jpg)
 
 IDA打开直接就可以看到
 
-![第15页图片](/images/weekly/w15_21.png)
+![第15页图片](/images/weekly/w15_21.jpg)
 
 #### 第三题
 
 也比较简单
 
-![第16页图片](/images/weekly/w16_22.png)
+![第16页图片](/images/weekly/w16_22.jpg)
 
-![第16页图片](/images/weekly/w16_23.png)
+![第16页图片](/images/weekly/w16_23.jpg)
 
 是一个linux elf文件IDA打开就可以看到flag
 
@@ -268,25 +268,25 @@ IDA打开直接就可以看到
 
 说真的我英语真的很差
 
-![第17页图片](/images/weekly/w17_24.png)
+![第17页图片](/images/weekly/w17_24.jpg)
 
-![第18页图片](/images/weekly/w18_25.png)
+![第18页图片](/images/weekly/w18_25.jpg)
 
 DIE查看程序类型，查看之前猜到是ELF程序
 
-![第19页图片](/images/weekly/w19_26.png)
+![第19页图片](/images/weekly/w19_26.jpg)
 
 无壳，用IDA打开查看
 
-![第19页图片](/images/weekly/w19_27.png)
+![第19页图片](/images/weekly/w19_27.jpg)
 
 额(⊙﹏⊙)不会下一题
 
 查看wp
 
-![第20页图片](/images/weekly/w20_28.png)
+![第20页图片](/images/weekly/w20_28.jpg)
 
-![第20页图片](/images/weekly/w20_29.png)
+![第20页图片](/images/weekly/w20_29.jpg)
 
 看不懂怎莫说，等有时间问问学长/\*我就是点了下一题，出现这个，结果不会\*/
 
@@ -294,9 +294,9 @@ DIE查看程序类型，查看之前猜到是ELF程序
 
 简单的花指令，因为之前做过花指令，应该会比较熟悉
 
-![第21页图片](/images/weekly/w21_30.png)
+![第21页图片](/images/weekly/w21_30.jpg)
 
-![第21页图片](/images/weekly/w21_31.png)
+![第21页图片](/images/weekly/w21_31.jpg)
 
 这就比较简单了
 
@@ -304,7 +304,7 @@ DIE查看程序类型，查看之前猜到是ELF程序
 
 去除掉之后main就会出现/\*要定义函数（按P）\*/
 
-![第22页图片](/images/weekly/w22_32.png)
+![第22页图片](/images/weekly/w22_32.jpg)
 
 这是一个XOR加密，参照上一个XOR加密写脚本
 
@@ -312,7 +312,7 @@ DIE查看程序类型，查看之前猜到是ELF程序
 
 直接套用上一个，改一些代码根据伪代码
 
-![第23页图片](/images/weekly/w23_33.png)
+![第23页图片](/images/weekly/w23_33.jpg)
 
 这是写的第一个，提交flag错误，不知道为啥，问问AI
 
@@ -355,7 +355,7 @@ int main()  /*变量名：cipher(密文)，key(密钥)，plain(明文)*/
 
 今天就先到这
 
-![第24页图片](/images/weekly/w24_34.png)
+![第24页图片](/images/weekly/w24_34.jpg)
 
 做了8道题，在这里写了5道，那三道忘写了，不想再做一遍都是简单的。明天应抱有更大的热情和动力
 
@@ -423,13 +423,13 @@ Base64编码是数据传输中的一种常用编码格式，主要用于将非AS
 
 若原数据不足 3 字节，用 0 补齐，再用 = 作为填充符。
 
-![第26页图片](/images/weekly/w26_35.png)
+![第26页图片](/images/weekly/w26_35.jpg)
 
 解码的过程：查索引表得到 6 位二进制 → 合并成 8 位字节 → 去掉补位。
 
 py脚本#跟着博客写的里面的备注是我自己的理解
 
-![第27页图片](/images/weekly/w27_36.png)
+![第27页图片](/images/weekly/w27_36.jpg)
 
 base64
 
@@ -450,19 +450,19 @@ print("解码后的数据:", utf8_decoded_data)    #输出解码后的数据
 
 突然发现三叶草讲base64，开始听
 
-![第28页图片](/images/weekly/w28_37.png)
+![第28页图片](/images/weekly/w28_37.jpg)
 
 遇到没有见过的代码可以通过常量来查找
 
-![第28页图片](/images/weekly/w28_38.png)
+![第28页图片](/images/weekly/w28_38.jpg)
 
-![第29页图片](/images/weekly/w29_39.png)
+![第29页图片](/images/weekly/w29_39.jpg)
 
 简便点理解，比如PKW这三个字母P（80）K（75）W（87）写成二进制：01010000 01001011 01010111
 
 切成四组，每组6b，010100 000100 101101 010111分别对应U E t X，用脚本检验一下
 
-![第29页图片](/images/weekly/w29_40.png)
+![第29页图片](/images/weekly/w29_40.jpg)
 
 没问题
 
@@ -478,7 +478,7 @@ print("解码后的数据:", utf8_decoded_data)    #输出解码后的数据
 
 其基本原理是不变,只是改变了它的索引表，正如变表这个名字说的一样
 
-![第30页图片](/images/weekly/w30_41.png)
+![第30页图片](/images/weekly/w30_41.jpg)
 
 这种就是改变了编码表
 
@@ -651,7 +651,7 @@ uint32_t key[4] = {0x01234567, 0x89ABCDEF, 0xFEDCBA98, 0x76543210};
 
 加密时解出来
 
-![第36页图片](/images/weekly/w36_42.png)
+![第36页图片](/images/weekly/w36_42.jpg)
 
 ```c
 uint32_t cipher[3][2] = {
@@ -720,19 +720,19 @@ int main(void)
 
 ### IDA动态调试
 
-![第39页图片](/images/weekly/w39_43.png)
+![第39页图片](/images/weekly/w39_43.jpg)
 
 视频中有一个函数qmemcpy是内存复制
 
-![第39页图片](/images/weekly/w39_44.png)
+![第39页图片](/images/weekly/w39_44.jpg)
 
 将第二个参数所对应的值复制28个字节到Str1参数中
 
-![第40页图片](/images/weekly/w40_45.png)
+![第40页图片](/images/weekly/w40_45.jpg)
 
 存在一些不可见字符，最后以0结尾
 
-![第40页图片](/images/weekly/w40_46.png)
+![第40页图片](/images/weekly/w40_46.jpg)
 
 Str1在代码中不依赖任何输入即无论输入的是什么，最后输入的东西都会在这里与Str1进行比较，Str1是经过代码计算出来的，所以想要查看最后进行比较的是什么，就需要在代码运行到这一行时，查看内存，所以需要在这一行进行下断点，或者在前一行下断点，然后动态调试，F9运行到断点这一行代码F8
 
@@ -746,43 +746,43 @@ Str1在代码中不依赖任何输入即无论输入的是什么，最后输入�
 
 DIE查看程序结构
 
-![第41页图片](/images/weekly/w41_47.png)
+![第41页图片](/images/weekly/w41_47.jpg)
 
 PE32程序，无壳，C语言编写，用ida打开
 
 找到main函数并进入
 
-![第42页图片](/images/weekly/w42_48.png)
+![第42页图片](/images/weekly/w42_48.jpg)
 
 将一些未知函数改为熟悉的
 
-![第43页图片](/images/weekly/w43_49.png)
+![第43页图片](/images/weekly/w43_49.jpg)
 
 尝试进行动态调试
 
-![第43页图片](/images/weekly/w43_50.png)
+![第43页图片](/images/weekly/w43_50.jpg)
 
 有一个反调试，视频中讲，需要绕过这个反调试，先在计算机上运行程序
 
-![第43页图片](/images/weekly/w43_51.png)
+![第43页图片](/images/weekly/w43_51.jpg)
 
-![第44页图片](/images/weekly/w44_52.png)
+![第44页图片](/images/weekly/w44_52.jpg)
 
 找到正在运行的程序，然后将这个正在运行的程序附属到ida中/\*我的理解，就是这个反调试程序在（printf("Welcome!! give me your flag:\n");）之前，而当程序运行到这里时，再将它附属到ida中则ida会直接在这一行进行，则不会卡在那个反调试处，看到输出的东西说明反调试已经过了\*/
 
-![第44页图片](/images/weekly/w44_53.png)
+![第44页图片](/images/weekly/w44_53.jpg)
 
 先分析伪代码（if ( (char)v7[n44_1] == Str[n44_1] )）这是一个if语句，就是当这两个数据相等时，则会进行输出you are right！  所以它的上面第84行就是他的加密，我们在前一行第83行下断点然后动调输入：11111111111111111111111111111111111111111111（44个1）
 
-![第44页图片](/images/weekly/w44_54.png)
+![第44页图片](/images/weekly/w44_54.jpg)
 
 断点命中，
 
-![第45页图片](/images/weekly/w45_55.png)
+![第45页图片](/images/weekly/w45_55.jpg)
 
 查看一下输入的数据，F8单步运行，（00CFF148）
 
-![第45页图片](/images/weekly/w45_56.png)
+![第45页图片](/images/weekly/w45_56.jpg)
 
 我的ida没有加载插件正在解决
 
@@ -798,17 +798,17 @@ v7=E415C4EDA62F5610BB13EBAD7556C7BBBBE9B9CC023A509F369069BE7C4244CAC6D4245 CD2B9
 
 再次运行程序动调，
 
-![第46页图片](/images/weekly/w46_57.png)
+![第46页图片](/images/weekly/w46_57.jpg)
 
 将这些改为v7
 
 。。。又一个插件没启用，做不成了，让ai给我搞一下
 
-![第46页图片](/images/weekly/w46_58.png)
+![第46页图片](/images/weekly/w46_58.jpg)
 
 已疯
 
-![第47页图片](/images/weekly/w47_59.png)
+![第47页图片](/images/weekly/w47_59.jpg)
 
 直接用python改
 
@@ -816,9 +816,9 @@ data=bytes.fromhex("E415C4EDA62F5610BB13EBAD7556C7BBBBE9B9CC023A509F369069BE7 C4
 
 修改完之后F8单步，查看Str
 
-![第47页图片](/images/weekly/w47_60.png)
+![第47页图片](/images/weekly/w47_60.jpg)
 
-![第48页图片](/images/weekly/w48_61.png)
+![第48页图片](/images/weekly/w48_61.jpg)
 
 flag出来了/\*已被IDA急哭\*/
 
@@ -867,11 +867,11 @@ IDA按F5反汇编出来的伪代码是IDAS自己猜出来的，并不准确，�
 
 DIE打开时ELF文件，采用IDA动态调试
 
-![第50页图片](/images/weekly/w50_62.png)
+![第50页图片](/images/weekly/w50_62.jpg)
 
 IDA
 
-![第50页图片](/images/weekly/w50_63.png)
+![第50页图片](/images/weekly/w50_63.jpg)
 
 写一个简单的脚本
 
@@ -888,7 +888,7 @@ int main() {
 
 就OK了。输入23位
 
-![第51页图片](/images/weekly/w51_64.png)
+![第51页图片](/images/weekly/w51_64.jpg)
 
 ## 2026/10/24~25
 
