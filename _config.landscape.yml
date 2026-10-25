@@ -1,0 +1,47 @@
+# Landscape 主题配置（覆盖 node_modules/hexo-theme-landscape/_config.yml）
+# 官方文档：https://github.com/hexojs/hexo-theme-landscape
+
+# 顶部导航
+menu:
+  Home: /
+  Archives: /archives
+  关于: /about
+# RSS
+rss: /atom.xml
+# 顶部横幅图（相对主题 source 目录；替换成自己的图可以用 /Pomme-project/images/banner.jpg 并在 source/images 放图）
+banner: "images/banner.jpg"
+subtitle:
+# 右上角社交图标（Fork Awesome 图标名，按需打开）
+links:
+#  github: https://github.com/USERNAME
+
+# 内容
+excerpt_link: Read More
+fancybox: true
+
+# 页脚版权
+copyright:
+
+# 侧边栏
+sidebar: right
+widgets:
+- category
+- tag
+- tagcloud
+- archive
+- recent_posts
+
+archive_type: 'monthly'
+show_count: false
+recent_posts_limits: 5
+
+# 其它
+google_analytics:
+gauges_analytics:
+favicon: /favicon.png
+twitter:
+fb_admins:
+fb_app_id:
+
+# 评论（默认关闭）
+disqus_shortname:

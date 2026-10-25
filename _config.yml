@@ -1,0 +1,113 @@
+# Hexo Configuration
+## Docs: https://hexo.io/docs/configuration.html
+
+# Site
+title: Pomme
+subtitle: ''
+description: ''
+keywords:
+author: Pomme
+language: zh-CN
+timezone: 'Asia/Shanghai'
+
+# URL
+## 部署在 xunshichen-2008/Pomme-project 仓库的 GitHub Pages 项目页
+## 访问地址：https://xunshichen-2008.github.io/Pomme-project/
+## 如果以后仓库改名，把下面两行一起改（用户页仓库 <用户名>.github.io 则 root 用 /）
+url: https://xunshichen-2008.github.io/Pomme-project
+root: /Pomme-project/
+permalink: :year/:month/:day/:title/
+permalink_defaults:
+pretty_urls:
+  trailing_index: true
+  trailing_html: true
+
+# Directory
+source_dir: source
+public_dir: public
+tag_dir: tags
+archive_dir: archives
+category_dir: categories
+code_dir: downloads/code
+i18n_dir: :lang
+skip_render:
+
+# Writing
+new_post_name: :year-:month-:day-:title.md # File name of new posts
+default_layout: post
+titlecase: false # Transform title into titlecase
+external_link:
+  enable: true # Open external links in new tab
+  field: site # Apply to the whole site
+  exclude: ''
+filename_case: 0
+render_drafts: false
+post_asset_folder: false
+relative_link: false
+future: true
+syntax_highlighter: highlight.js
+highlight:
+  line_number: true
+  auto_detect: false
+  tab_replace: ''
+  wrap: true
+  hljs: false
+prismjs:
+  preprocess: true
+  line_number: true
+  tab_replace: ''
+
+# Home page setting
+index_generator:
+  path: ''
+  per_page: 10
+  order_by: -date
+
+# Category & Tag
+default_category: uncategorized
+category_map:
+tag_map:
+
+# Metadata elements
+meta_generator: true
+
+# Date / Time format
+date_format: YYYY-MM-DD
+time_format: HH:mm:ss
+updated_option: 'mtime'
+
+# Pagination
+per_page: 10
+pagination_dir: page
+
+# Include / Exclude file(s)
+include:
+exclude:
+ignore:
+
+# Extensions
+## Plugins: https://hexo.io/plugins/
+## Themes: https://hexo.io/themes/
+theme: landscape
+
+# Feed
+feed:
+  type: atom
+  path: atom.xml
+  limit: 20
+  hub:
+  content: true
+  content_limit: 140
+  content_limit_delim: ' '
+  order_by: -date
+  icon: icon.png
+  autodiscovery: true
+  template:
+
+# Deployment
+## 本站用 GitHub Actions 部署（见 .github/workflows/pages.yml）
+## 如果想在本地 hexo deploy，取消下面的注释并安装 hexo-deployer-git
+# deploy:
+#   type: git
+#   repo: https://github.com/USERNAME/Pomme.git
+#   branch: gh-pages

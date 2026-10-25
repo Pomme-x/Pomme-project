@@ -26,3 +26,8 @@ __pycache__/
 .venv/
 venv/
 
+
+# Hexo build output / cache
+public/
+.deploy_git/
+db.json
