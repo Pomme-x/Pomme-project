@@ -36,3 +36,6 @@ db.json
 tools/__pycache__/
 __pycache__/
 *.pyc
+
+# 小工具本地配置
+tools/config.json

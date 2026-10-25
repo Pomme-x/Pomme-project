@@ -73,6 +73,43 @@ class GitHubAPI:
         ref = self._request('GET', self._repo_url('/git/ref/heads/' + self.branch))
         return ref['object']['sha']
 
+    # -------- 仓库 / 文件浏览 --------
+    def get_repo(self):
+        return self._request('GET', self._repo_url())
+
+    def list_dir(self, path=''):
+        path = path.strip('/')
+        suffix = '/contents' + (('/' + path) if path else '') + '?ref=' + self.branch
+        try:
+            data = self._request('GET', self._repo_url(suffix))
+        except RuntimeError as e:
+            if '404' in str(e):
+                return []
+            raise
+        if isinstance(data, dict):
+            return [data]
+        return data
+
+    def get_pages(self):
+        try:
+            return self._request('GET', self._repo_url('/pages'))
+        except RuntimeError as e:
+            if '404' in str(e):
+                return None
+            raise
+
+    def create_pages(self):
+        return self._request('POST', self._repo_url('/pages'), {'build_type': 'workflow'})
+
+    def set_description(self, text):
+        return self._request('PATCH', self._repo_url(), {'description': text})
+
+    def rename_repo(self, new_name):
+        """重命名仓库，返回新 full_name。"""
+        data = self._request('PATCH', self._repo_url(), {'name': new_name})
+        self.repo = data['full_name']
+        return data['full_name']
+
     # -------- 一次提交多个文件 --------
     def commit_files(self, files, message, deletions=None):
         """files: {path: bytes}；deletions: 需要删除的 path 列表。返回 commit sha。"""

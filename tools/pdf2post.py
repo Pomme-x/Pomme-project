@@ -343,7 +343,7 @@ def convert_pdf(pdf_path, repo_dir, title=None, date_str=None, tags=None,
     body = re.sub(r'\n{3,}', '\n\n', body).strip('\n')
 
     tags = tags or ['周报']
-    categories = categories or ['学习笔记']
+    categories = categories or ['周报']
 
     def q(s):
         return '"%s"' % str(s).replace('\\', '\\\\').replace('"', '\\"')
@@ -356,6 +356,7 @@ def convert_pdf(pdf_path, repo_dir, title=None, date_str=None, tags=None,
     fm.append('categories:')
     for c in categories:
         fm.append('  - ' + q(c))
+    fm.append('permalink: ' + q('周报/%s/' % slug))
     fm.append('---')
     fm.append('')
     content = '\n'.join(fm) + body + '\n'

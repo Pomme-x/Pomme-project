@@ -14,7 +14,7 @@ timezone: 'Asia/Shanghai'
 ## 部署在 xunshichen-2008/Pomme-project 仓库的 GitHub Pages 项目页
 ## 访问地址：https://xunshichen-2008.github.io/Pomme-project/
 ## 如果以后仓库改名，把下面两行一起改（用户页仓库 <用户名>.github.io 则 root 用 /）
-url: https://xunshichen-2008.github.io/Pomme-project
+url: https://pomme-x.github.io/Pomme-project
 root: /Pomme-project/
 permalink: :year/:month/:day/:title/
 permalink_defaults:

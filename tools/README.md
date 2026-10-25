@@ -1,6 +1,6 @@
 # Pomme 博客小工具
 
-双击 **`启动Pomme工具.bat`** 打开图形界面（不会弹黑色命令行窗口）。
+双击 **`启动Pomme工具.bat`**（或桌面「Pomme博客工具」快捷方式）打开图形界面，不会弹黑色命令行窗口。
 
 ## 功能
 
@@ -10,46 +10,55 @@
 2. 标题/日期/标签/分类可留空自动识别（标题自动取 PDF 第一页最大的字）
 3. 点 **上传并发布**
 
-工具会自动：
+自动完成：PDF → 网页文章（正文、截图、表格、代码高亮）→ 图片压缩 → 生成到 `source/_posts/`
+→ **文章自动放到 `/周报/` 目录下**（例如 `/周报/weekly-abc1/`）→ 通过 GitHub API 一次提交 →
+等待 Actions 部署完成。
 
-- 把 PDF 转成和第一篇周报一样的网页文章：正文文字、截图、表格、代码高亮（不需要点 PDF）
-- 图片压缩成 JPEG，放到文章的独立图片目录
-- 生成文章 Markdown 到 `source/_posts/`
-- **通过 GitHub API 直接提交**（本机不需要装 git，也不用手动 push）
-- 等 GitHub Actions 部署完成，告诉你是否上线
+「周报」目录页会自动列出所有分类/标签带「周报」的文章，新上传的会自己出现。
 
 ### 2. 外观设置
 
-- **换背景**：内置「粉色星云」「黑洞」，或选「我的图片…」上传任意图片，
-  会自动裁成 4:1 宽幅并压暗（保证白色标题清晰）
+- **换背景**：内置「粉色星云」「黑洞」，或选「我的图片…」（自动裁 4:1、压暗）
 - **改站点信息**：站点标题、副标题、作者
-- 点 **保存并发布** 后自动提交部署
+- 点 **保存并发布** 自动提交部署
 
-### 3. 状态
+### 3. 仓库管理（管理员操作）
 
-查看 Token 状态、远端最新提交、最近一次部署结果，一键打开网站 / 仓库 / Actions。
+- 浏览仓库目录，**双击进入目录 / 双击文件直接编辑**（改完点「保存并发布」）
+- **上传文件**、**新建文件**、**删除文件**
+- **改仓库简介**、**重命名仓库**（会自动同步 `_config.yml` 的 `url/root` 和工具配置）
+- **重新开启 / 修复 GitHub Pages**
 
-## 首次使用：设置 GitHub Token
+### 4. 进入博客
 
-- 打开 **状态 → 设置 GitHub Token**，粘贴一个 GitHub Personal Access Token（经典 token 勾 `repo` 即可，或用 fine-grained token 给本仓库 `Contents: Read and write` 权限）
-- Token 用 **Windows DPAPI 加密**后保存在 `%APPDATA%\Pomme\token.bin`，只有当前 Windows 用户能解密
-- 换电脑/换用户需要重新设置；想清除就直接删掉这个文件
+标题栏右上角 **「进入博客」** 按钮，一键打开网站；旁边的 **「GitHub 仓库」** 打开仓库主页。
+状态页还有 Token 状态、最近部署、Actions 入口。
+
+## 首次使用：GitHub Token
+
+- **状态 → 设置 GitHub Token**，粘贴 Personal Access Token
+  （经典 token 勾 `repo`；或用 fine-grained token 给本仓库 `Contents: Read and write`，
+  要改仓库名/简介时再加 `Administration: Read and write`）
+- Token 用 **Windows DPAPI 加密**保存在 `%APPDATA%\Pomme\token.bin`，只有当前 Windows 用户能解密
+- 想清除：删掉这个文件
 
 ## 依赖
 
-- Python 3（优先用 DSH 自带 Python，其次用系统 Python）
-- `pymupdf`、`Pillow`（本机两套 Python 都已装）
-- 需要能访问 GitHub 的网络
+- Python 3（优先 DSH 自带 Python，其次系统 Python）
+- `pymupdf`、`Pillow`（本机已装）
+- 能访问 GitHub 的网络
 
-## 原理 / 文件说明
+## 文件说明
 
 | 文件 | 作用 |
 |---|---|
 | `pomme_tool.py` | 图形界面主程序 |
 | `pdf2post.py` | PDF → Markdown 转换（文字/截图/表格/代码块） |
-| `github_api.py` | 用 GitHub REST API 一次性提交多个文件（Git Data API）|
+| `github_api.py` | GitHub REST API：一次提交多个文件、浏览/编辑文件、改仓库设置、Pages |
 | `token_store.py` | Windows DPAPI 加密保存 Token |
+| `config.json` | 本地记录仓库名（重命名仓库后自动更新；不提交到仓库） |
 | `启动Pomme工具.bat` | 双击启动 |
 
-> 工具目录 `tools/` 不会被 Hexo 发布到网站上，只存在于仓库里。
-> 用工具发布后，本地 `F:\ctf\Pomme` 的 git 记录可能落后于 GitHub，这不影响网站；需要本地同步时执行 `git fetch origin && git reset --hard origin/main`。
+> 工具目录 `tools/` 不会被 Hexo 发布到网站上。
+> 用工具发布后，本地 `F:\ctf\Pomme` 的 git 记录可能落后于 GitHub；需要同步时执行
+> `git fetch origin && git reset --hard origin/main`。
