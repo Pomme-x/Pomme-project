@@ -89,6 +89,18 @@ categories:
 - **图片**：放到 `source/images/`，正文用 `/images/xxx.png` 引用（**不要**带 `/Pomme-project`，Hexo 会自动加）。
 - **周报正文**：顶部导航「周报」对应的文件是 `source/周报/index.md`，已经把《第五周周末及第六周周报》PDF 转成网页内容内嵌（不用点 PDF、没有链接）。新的周报 PDF 发我转换，或照着这个文件写 Markdown 即可。
 
+### 3.2 图形小工具（最省事，推荐）
+
+双击 **`tools\启动Pomme工具.bat`**，打开「Pomme 博客小工具」：
+
+- **上传周报 PDF**：选 PDF → 点「上传并发布」，自动完成
+  PDF→网页文章（文字 + 截图 + 表格 + 代码高亮）、图片压缩、提交、推送、等 Actions 部署，效果和第一篇周报一样。
+- **外观设置**：换顶部背景（粉色星云 / 黑洞 / 自己的图片，自动裁成 4:1 并压暗）、改站点标题/副标题/作者，
+  点「保存并发布」就上线。
+- **状态**：看仓库状态、一键打开网站/仓库/Actions。
+
+详见 [tools/README.md](tools/README.md)。工具依赖 `pymupdf`、`Pillow`，优先用 DSH 自带 Python（本机已装）。
+
 ## 4. 部署状态（已完成）
 
 - 站点：<https://xunshichen-2008.github.io/Pomme-project/>（已上线，HTTPS 已强制）

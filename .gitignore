@@ -31,3 +31,8 @@ venv/
 public/
 .deploy_git/
 db.json
+
+# Python tool cache
+tools/__pycache__/
+__pycache__/
+*.pyc
