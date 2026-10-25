@@ -10,7 +10,7 @@ menu:
 # RSS
 rss: /atom.xml
 # 顶部横幅图（相对主题 source 目录；替换成自己的图可以用 /Pomme-project/images/banner.jpg 并在 source/images 放图）
-banner: "images/banner.jpg"
+banner: "/Pomme-project/images/banner.jpg"
 subtitle:
 # 右上角社交图标（Fork Awesome 图标名，按需打开）
 links:
