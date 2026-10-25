@@ -73,7 +73,7 @@ categories:
 
 打开 <https://github.com/xunshichen-2008/Pomme-project>，用 **Add file → Upload files**（或 **Create new file**）即可，提交到 `main` 后 Actions 会自动构建，约 1 分钟上线。
 
-- **想发成一篇博客文章**：`source/_posts/2026-10-25-标题.md`，开头必须是 front-matter：
+- **想发成一篇博客文章**：复制仓库根目录的 [文章模板.md](文章模板.md)，改名成 `2026-10-26-我的标题.md`，放到 `source/_posts/`，开头必须是 front-matter：
   ```yaml
   ---
   title: 我的周报
