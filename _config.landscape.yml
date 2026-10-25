@@ -3,10 +3,11 @@
 
 # 顶部导航
 menu:
-  Home: /
-  Archives: /archives
-  周报: /周报
-  关于: /about
+  "Home": "/"
+  "Archives": "/archives"
+  "周报": "/周报"
+  "关于": "/about"
+  "Wp": "/Wp"
 # RSS
 rss: /atom.xml
 # 顶部横幅图（相对主题 source 目录；替换成自己的图可以用 /Pomme-project/images/banner.jpg 并在 source/images 放图）
