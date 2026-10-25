@@ -126,7 +126,7 @@ def convert_pdf(pdf_path, repo_dir, title=None, date_str=None, tags=None,
         now = datetime.now()
         y, mo, d = str(now.year), str(now.month).zfill(2), str(now.day).zfill(2)
 
-    images_dir = repo / 'source' / 'images' / ('weekly-' + slug)
+    images_dir = repo / 'source' / 'images' / slug
     images_dir.mkdir(parents=True, exist_ok=True)
     for old in images_dir.glob('*'):
         if old.is_file():
@@ -246,7 +246,7 @@ def convert_pdf(pdf_path, repo_dir, title=None, date_str=None, tags=None,
                     target = images_dir / name
                     im = Image.open(__import__('io').BytesIO(pix['image'])).convert('RGB')
                     im.save(target, 'JPEG', quality=82, optimize=True, progressive=True)
-                    url = '%sweekly-%s/%s' % (IMAGE_URL_PREFIX, slug, name)
+                    url = '%s%s/%s' % (IMAGE_URL_PREFIX, slug, name)
                     md_parts.append('\n![第%d页截图](%s)\n' % (pno + 1, url))
                 except Exception as e:
                     log('图片处理失败 p%d: %s' % (pno + 1, e))
