@@ -5,6 +5,7 @@
 menu:
   Home: /
   Archives: /archives
+  周报: /周报
   关于: /about
 # RSS
 rss: /atom.xml

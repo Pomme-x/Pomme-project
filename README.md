@@ -79,9 +79,7 @@ categories:
 - **想让文件能通过网址下载**（比如 PDF）：传到 `source/` 下，例如 `source/周报/第五周周报.pdf`
   → 发布到 <https://xunshichen-2008.github.io/Pomme-project/周报/第五周周报.pdf>
   （注意：仓库根目录的 `周报/` 文件夹不参与网站构建，只有 `source/` 里的文件才会发布）
-- **想发成一篇博客文章**：`source/_posts/2026-10-25-标题.md`，内容开头必须是 front-matter：
-
-  ```
+- **想发成一篇博客文章**：`source/_posts/2026-10-25-标题.md`，内容开头必须是 front-matter：  ```
   ---
   title: 我的周报
   date: 2026-10-25 20:00:00
@@ -93,6 +91,7 @@ categories:
   ```
 
   提交后首页/归档/标签页会自动出现这篇文章。
+- **周报页面**：顶部导航「周报」→ <https://xunshichen-2008.github.io/Pomme-project/周报/>，会自动列出 `source/周报/` 里的所有 PDF（上传后约 1 分钟出现）。
 - 图片同理：上传到 `source/images/`，正文用 `/Pomme-project/images/xxx.png` 引用。
 
 ## 4. 部署状态（已完成）
