@@ -9,5 +9,3 @@ type: page
 - 作者：Pomme
 - 主题：Pomme个人分享
 - 部署：Pomme
-
-修改内容请编辑 `source/about/index.md`。
