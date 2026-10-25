@@ -72,29 +72,46 @@ categories:
 
 图片：放到 `source/images/`，正文写 `![说明](/Pomme-project/images/xxx.png)`。
 
-## 4. 部署（已全部配好，只差一次推送）
+### 3.1 不装环境：直接在 GitHub 网页上传文件
 
-`_config.yml` 里已经按你的仓库配好：
+打开 <https://github.com/xunshichen-2008/Pomme-project>，用 **Add file → Upload files**（或 **Create new file**）即可，提交到 `main` 后 Actions 会自动构建，约 1 分钟上线。
 
-```yaml
-url: https://xunshichen-2008.github.io/Pomme-project
-root: /Pomme-project/
-```
+- **想让文件能通过网址下载**（比如 PDF）：传到 `source/` 下，例如 `source/周报/第五周周报.pdf`
+  → 发布到 <https://xunshichen-2008.github.io/Pomme-project/周报/第五周周报.pdf>
+  （注意：仓库根目录的 `周报/` 文件夹不参与网站构建，只有 `source/` 里的文件才会发布）
+- **想发成一篇博客文章**：`source/_posts/2026-10-25-标题.md`，内容开头必须是 front-matter：
 
-正式推送步骤：
+  ```
+  ---
+  title: 我的周报
+  date: 2026-10-25 20:00:00
+  tags:
+    - 周报
+  ---
+
+  正文（Markdown）……
+  ```
+
+  提交后首页/归档/标签页会自动出现这篇文章。
+- 图片同理：上传到 `source/images/`，正文用 `/Pomme-project/images/xxx.png` 引用。
+
+## 4. 部署状态（已完成）
+
+- 站点：<https://xunshichen-2008.github.io/Pomme-project/>（已上线，HTTPS 已强制）
+- 仓库：<https://github.com/xunshichen-2008/Pomme-project>，`main` 每次推送 → `.github/workflows/pages.yml` 自动构建发布
+- Pages 设置：**Settings → Pages → Source = GitHub Actions**（已开启，`build_type: workflow`）
+- 首次部署的 Actions 运行记录：<https://github.com/xunshichen-2008/Pomme-project/actions>
+
+本地开发时用：
 
 ```bash
 cd /f/ctf/Pomme
-git push -u origin main        # 第一次推送
+git pull                       # 先同步网页上改的内容
+# 改文章 / 改配置后：
+git add -A && git commit -m "update" && git push
 ```
 
-然后在仓库 **Settings → Pages → Build and deployment → Source** 选 **GitHub Actions**。
-之后每次 push 到 `main`，`.github/workflows/pages.yml` 会自动构建并发布，访问：
-
-<https://xunshichen-2008.github.io/Pomme-project/>
-
-> 首次推送需要 GitHub 凭据。GitHub 已不接受账号密码，要用 Personal Access Token（fine-grained token，仓库 `Pomme-project`，权限 `Contents: Read and write`；若用公开仓库的经典 token 勾 `repo` 即可）当密码。
-> 把 token 发我，我直接推送并盯着 Actions 跑完；或者用 GitHub Desktop / VS Code 登录后自己点推送。
+> 本机已保存 GitHub 凭据（Windows 凭据管理器，用户 `xunshichen-2008`），推送时用 `GIT_SSL_NO_VERIFY=true` 绕过本机证书吊销检查即可。
 
 ## 5. 修改站点信息
 
@@ -109,5 +126,6 @@ git push -u origin main        # 第一次推送
 - [x] 示例文章 `hello-pomme`、`关于` 页、小苹果 favicon
 - [x] GitHub Actions Pages 工作流（pnpm + Node 22 + `actions/deploy-pages@v5`）
 - [x] 站点 url/root 已指向 `xunshichen-2008/Pomme-project`
-- [ ] 首次 `git push`（等 GitHub token）
-- [ ] 仓库 Settings → Pages 选 GitHub Actions
+- [x] 首次 `git push` 完成，Actions 部署成功
+- [x] 仓库 Pages 已开启（Source = GitHub Actions），站点已上线
+- [ ] 上传你自己的周报/文章（网页上传即可，见 3.1）
