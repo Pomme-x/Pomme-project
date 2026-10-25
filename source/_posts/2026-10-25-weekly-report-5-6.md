@@ -2,10 +2,10 @@
 title: "第五周周末及第六周周报"
 date: 2026-10-25 20:00:00
 tags:
-  - "周报"
+  - "Wp"
 categories:
-  - "周报"
-permalink: "周报/weekly-report-5-6/"
+  - "Wp"
+permalink: "Wp/weekly-report-5-6/"
 ---
 
 ## 2026/10/16
