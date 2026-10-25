@@ -99,7 +99,7 @@ categories:
   点「保存并发布」就上线。
 - **状态**：看仓库状态、一键打开网站/仓库/Actions。
 
-详见 [tools/README.md](tools/README.md)。工具依赖 `pymupdf`、`Pillow`，优先用 DSH 自带 Python（本机已装）。
+详见 [tools/README.md](tools/README.md)。工具用 GitHub API 直接提交，**本机不需要装 git**；GitHub Token 用 Windows DPAPI 加密保存在 `%APPDATA%\Pomme\token.bin`。依赖 `pymupdf`、`Pillow`（本机已装）。
 
 ## 4. 部署状态（已完成）
 

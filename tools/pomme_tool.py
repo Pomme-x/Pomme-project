@@ -3,17 +3,17 @@
 
 功能：
   1. 上传周报 PDF：自动转成和第一篇周报一样的网页文章（文字 + 截图 + 表格 + 代码高亮），
-     图片自动压缩，然后自动提交、推送到 GitHub，GitHub Actions 自动部署上线。
+     图片自动压缩，然后通过 GitHub API 自动提交（不需要本机装 git），Actions 自动部署上线。
   2. 外观设置：换顶部背景（内置粉色星云 / 黑洞 / 自己的图片），改站点标题、副标题、作者。
   3. 状态：查看仓库状态、一键打开网站 / 仓库 / Actions。
 
-依赖：pymupdf、Pillow（本机已装）。运行：双击「启动Pomme工具.bat」
+依赖：pymupdf、Pillow；需要 Windows 里保存好的 GitHub Token（首次使用会提示粘贴，之后加密保存）。
+运行：双击「启动Pomme工具.bat」
 """
 
 import os
 import queue
 import re
-import subprocess
 import tempfile
 import threading
 import time
@@ -21,7 +21,7 @@ import webbrowser
 from pathlib import Path
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, simpledialog
 
 from PIL import Image, ImageTk
 
@@ -29,8 +29,6 @@ REPO = Path(__file__).resolve().parent.parent
 GITHUB_REPO = 'xunshichen-2008/Pomme-project'
 SITE_URL = 'https://xunshichen-2008.github.io/Pomme-project/'
 BRANCH = 'main'
-GIT_ENV = dict(os.environ, GIT_SSL_NO_VERIFY='true', GIT_TERMINAL_PROMPT='0',
-               GCM_INTERACTIVE='Never')
 
 BG_PRESETS = {
     '粉色星云（当前）': 'banner-pink.jpg',
@@ -38,88 +36,11 @@ BG_PRESETS = {
 }
 
 
-def run(cmd, input_text=None, timeout=600):
-    p = subprocess.run(cmd, cwd=str(REPO), env=GIT_ENV, input=input_text,
-                       capture_output=True, text=True, timeout=timeout,
-                       encoding='utf-8', errors='replace')
-    return p.returncode, (p.stdout or '') + (p.stderr or '')
-
-
-def get_token():
-    code, out = run(['git', 'credential', 'fill'],
-                    input_text='protocol=https\nhost=github.com\n\n', timeout=60)
-    for line in out.splitlines():
-        if line.startswith('password='):
-            return line.split('=', 1)[1]
-    return None
-
-
-def push_changes(message, log=print):
-    """提交当前所有改动并推送到 GitHub，返回短 sha（没有改动则返回 None）。"""
-    run(['git', 'add', '-A'])
-    code, out = run(['git', 'status', '--porcelain'])
-    if not out.strip():
-        log('没有需要提交的改动。')
-        return None
-    run(['git', 'commit', '-m', message])
-    code, out = run(['git', 'fetch', 'origin'])
-    if code != 0:
-        raise RuntimeError('拉取远端失败：' + out[-500:])
-    code, out = run(['git', 'rebase', 'origin/' + BRANCH])
-    if code != 0:
-        run(['git', 'rebase', '--abort'])
-        raise RuntimeError('和 GitHub 上的改动冲突了，先手动处理一下：\n' + out[-800:])
-
-    token = get_token()
-    if not token:
-        raise RuntimeError('没有找到 GitHub 凭据（Windows 凭据管理器里没有 github.com）')
-    env_token = dict(GIT_ENV, POMME_TOKEN=token)
-    helper = 'credential.helper=!f() { echo username=xunshichen-2008; echo password=$POMME_TOKEN; }; f'
-    p = subprocess.run(['git', '-c', 'credential.helper=', '-c', helper,
-                        'push', 'origin', BRANCH],
-                       cwd=str(REPO), env=env_token, capture_output=True,
-                       text=True, timeout=600, encoding='utf-8', errors='replace')
-    if p.returncode != 0:
-        raise RuntimeError('推送失败：' + (p.stdout + p.stderr)[-800:])
-    code, sha = run(['git', 'rev-parse', '--short', 'HEAD'])
-    log('已推送到 GitHub：' + sha.strip())
-    return sha.strip()
-
-
-def wait_deploy(sha, log=print, timeout=420):
-    """等 GitHub Actions 跑完（返回 success/failure/timeout）。"""
-    import json
-    import urllib.request
-    api = 'https://api.github.com/repos/%s/actions/runs?per_page=15' % GITHUB_REPO
-    deadline = time.time() + timeout
-    seen = False
-    while time.time() < deadline:
-        try:
-            req = urllib.request.Request(api, headers={'User-Agent': 'pomme-tool'})
-            with urllib.request.urlopen(req, timeout=20) as r:
-                data = json.loads(r.read().decode('utf-8'))
-            for run_item in data.get('workflow_runs', []):
-                if run_item['head_sha'].startswith(sha):
-                    seen = True
-                    if run_item['status'] == 'completed':
-                        return run_item['conclusion'] or 'unknown'
-                    log('部署进行中……（%s）' % run_item['status'])
-                    break
-        except Exception as e:
-            log('查询部署状态失败：%s' % e)
-        time.sleep(8)
-    return 'timeout' if seen else 'not-found'
-
-
-def site_config():
-    """从 _config.yml 读取站点信息。"""
+# ---------------- 通用 ----------------
+def site_config_from_text(text):
     cfg = dict(title='', subtitle='', author='')
-    try:
-        text = (REPO / '_config.yml').read_text(encoding='utf-8')
-    except Exception:
-        return cfg
     for key in cfg:
-        m = re.search(r'(?m)^%s:\s*(.*)$' % key, text)
+        m = re.search(r'(?m)^%s:\s*(.*)$' % key, text or '')
         if m:
             val = m.group(1).strip()
             if len(val) >= 2 and val[0] == val[-1] and val[0] in '"\'':
@@ -128,41 +49,37 @@ def site_config():
     return cfg
 
 
-def set_site_config(title=None, subtitle=None, author=None):
-    path = REPO / '_config.yml'
-    text = path.read_text(encoding='utf-8')
-
-    def yaml_val(v):
-        if v is None or v == '':
+def apply_site_config(text, title=None, subtitle=None, author=None):
+    def q(v):
+        if v is None:
+            return None
+        if v == '':
             return "''"
         return '"%s"' % v.replace('\\', '\\\\').replace('"', '\\"')
 
-    def repl(text, key, value):
+    for key, value in (('title', title), ('subtitle', subtitle), ('author', author)):
         if value is None:
-            return text
-        line = '%s: %s' % (key, yaml_val(value))
-        return re.sub(r'(?m)^%s:.*$' % key, lambda m: line, text, count=1)
-
-    text = repl(text, 'title', title)
-    text = repl(text, 'subtitle', subtitle)
-    text = repl(text, 'author', author)
-    path.write_text(text, encoding='utf-8', newline='\n')
+            continue
+        text = re.sub(r'(?m)^%s:.*$' % key, lambda m: '%s: %s' % (key, q(value)), text, count=1)
+    return text
 
 
-def make_banner(src, dst, bright=0.86, size=(1920, 480)):
-    """把任意图片裁成 4:1 横幅并压暗（为了白字清晰）。"""
+def make_banner(src, size=(1920, 480), bright=0.86):
+    """把任意图片裁成 4:1 横幅并压暗（为了白字清晰），返回 JPEG bytes。"""
+    import io
     from PIL import ImageEnhance
     im = Image.open(src).convert('RGB')
     tw, th = size
     scale = max(tw / im.width, th / im.height)
     nw, nh = max(tw, int(im.width * scale + 0.5)), max(th, int(im.height * scale + 0.5))
     im = im.resize((nw, nh), Image.LANCZOS)
-    left = (nw - tw) // 2
-    top = (nh - th) // 2
+    left, top = (nw - tw) // 2, (nh - th) // 2
     im = im.crop((left, top, left + tw, top + th))
     im = ImageEnhance.Brightness(im).enhance(bright)
     im = ImageEnhance.Color(im).enhance(1.05)
-    im.save(dst, 'JPEG', quality=88, optimize=True, progressive=True)
+    buf = io.BytesIO()
+    im.save(buf, 'JPEG', quality=88, optimize=True, progressive=True)
+    return buf.getvalue()
 
 
 def thumb(path, max_w=460, max_h=150):
@@ -172,28 +89,37 @@ def thumb(path, max_w=460, max_h=150):
     return ImageTk.PhotoImage(im)
 
 
+def get_api():
+    from token_store import load_token
+    from github_api import GitHubAPI
+    token = load_token()
+    if not token:
+        return None
+    return GitHubAPI(token, GITHUB_REPO, BRANCH)
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title('Pomme 博客小工具')
-        self.geometry('1000x760')
-        self.minsize(900, 680)
+        self.geometry('1000x720')
+        self.minsize(920, 660)
         self.log_queue = queue.Queue()
         self.pdfs = []
         self.bg_choice = tk.StringVar(value='粉色星云（当前）')
         self.bg_custom = None
         self.bg_image = None
+        self.api = None
 
         self._build_ui()
         self._refresh_banner_preview()
-        self._refresh_status()
-        self.after(120, self._drain_log)
+        self.after(200, self._drain_log)
+        threading.Thread(target=self._check_token, daemon=True).start()
 
     # ---------------- UI ----------------
     def _build_ui(self):
-        style = ttk.Style(self)
         try:
-            style.theme_use('vista')
+            ttk.Style(self).theme_use('vista')
         except Exception:
             pass
 
@@ -212,7 +138,6 @@ class App(tk.Tk):
         nb.add(self.tab_pdf, text='  上传周报 PDF  ')
         nb.add(self.tab_style, text='  外观设置  ')
         nb.add(self.tab_status, text='  状态  ')
-
         self._build_pdf_tab()
         self._build_style_tab()
         self._build_status_tab()
@@ -247,14 +172,14 @@ class App(tk.Tk):
                 ('标签（逗号分隔）：', self.var_tags), ('分类：', self.var_cat)]
         for r, (label, var) in enumerate(rows):
             ttk.Label(form, text=label).grid(row=r, column=0, sticky='e', pady=2)
-            ttk.Entry(form, textvariable=var, width=60).grid(row=r, column=1, sticky='we', pady=2, padx=4)
+            ttk.Entry(form, textvariable=var, width=62).grid(row=r, column=1, sticky='we', pady=2, padx=4)
         form.columnconfigure(1, weight=1)
 
         btns = ttk.Frame(f)
         btns.pack(fill='x', pady=6)
-        ttk.Button(btns, text='③ 上传并发布（自动转换、推送、等部署）',
+        ttk.Button(btns, text='③ 上传并发布（自动转换、上传、等部署）',
                    command=self.start_upload).pack(side='left')
-        ttk.Label(btns, text='   单篇 51 页约 1~2 分钟；大文件会久一点').pack(side='left')
+        ttk.Label(btns, text='   单篇 50 页约 1~2 分钟').pack(side='left')
 
     def _build_style_tab(self):
         f = self.tab_style
@@ -272,10 +197,6 @@ class App(tk.Tk):
         self.var_site_title = tk.StringVar()
         self.var_site_sub = tk.StringVar()
         self.var_site_author = tk.StringVar()
-        cfg = site_config()
-        self.var_site_title.set(cfg['title'])
-        self.var_site_sub.set(cfg['subtitle'])
-        self.var_site_author.set(cfg['author'])
         for r, (label, var) in enumerate([('站点标题：', self.var_site_title),
                                           ('副标题：', self.var_site_sub),
                                           ('作者：', self.var_site_author)]):
@@ -287,15 +208,16 @@ class App(tk.Tk):
 
     def _build_status_tab(self):
         f = self.tab_status
-        self.status_text = tk.Text(f, height=18, wrap='word', font=('Consolas', 9))
+        self.status_text = tk.Text(f, height=16, wrap='word', font=('Consolas', 9))
         self.status_text.pack(fill='both', expand=True)
         bar = ttk.Frame(f)
         bar.pack(fill='x', pady=6)
-        ttk.Button(bar, text='刷新状态', command=self._refresh_status).pack(side='left')
+        ttk.Button(bar, text='刷新状态', command=self.refresh_status).pack(side='left')
+        ttk.Button(bar, text='设置 GitHub Token', command=self.ask_token).pack(side='left', padx=6)
         ttk.Button(bar, text='打开 Actions',
-                   command=lambda: webbrowser.open('https://github.com/%s/actions' % GITHUB_REPO)).pack(side='left', padx=6)
-        ttk.Button(bar, text='打开本地预览（需已启动 hexo server）',
-                   command=lambda: webbrowser.open('http://localhost:4000/Pomme-project/')).pack(side='left')
+                   command=lambda: webbrowser.open('https://github.com/%s/actions' % GITHUB_REPO)).pack(side='left')
+        ttk.Button(bar, text='本地预览',
+                   command=lambda: webbrowser.open('http://localhost:4000/Pomme-project/')).pack(side='left', padx=6)
 
     # ---------------- logging ----------------
     def log(self, msg):
@@ -311,6 +233,44 @@ class App(tk.Tk):
             self.log_text.see('end')
         self.after(120, self._drain_log)
 
+    # ---------------- token ----------------
+    def _check_token(self):
+        from token_store import load_token
+        if not load_token():
+            self.log('还没有保存 GitHub Token，点「设置 GitHub Token」粘贴一次即可（会加密保存）。')
+        else:
+            api = get_api()
+            try:
+                sha = api.latest_commit_sha()
+                self.api = api
+                self.log('Token 可用，远端最新提交：' + sha[:10])
+                cfg_text, _ = api.get_text('_config.yml')
+                cfg = site_config_from_text(cfg_text)
+                self.after(0, lambda: (self.var_site_title.set(cfg['title']),
+                                       self.var_site_sub.set(cfg['subtitle']),
+                                       self.var_site_author.set(cfg['author'])))
+                self.after(0, self.refresh_status)
+            except Exception as e:
+                self.log('Token 校验失败：%s' % e)
+
+    def ask_token(self):
+        token = simpledialog.askstring('设置 GitHub Token',
+                                       '粘贴 GitHub Personal Access Token（只需一次，会加密保存）：',
+                                       show='*')
+        if not token:
+            return
+        from token_store import save_token
+        from github_api import GitHubAPI
+        save_token(token.strip())
+        try:
+            api = GitHubAPI(token.strip(), GITHUB_REPO, BRANCH)
+            sha = api.latest_commit_sha()
+            self.api = api
+            self.log('Token 保存成功，最新提交：' + sha[:10])
+            self._check_token()
+        except Exception as e:
+            messagebox.showerror('Token 无效', str(e))
+
     # ---------------- pdf tab ----------------
     def add_pdfs(self):
         files = filedialog.askopenfilenames(title='选择 PDF', filetypes=[('PDF 文件', '*.pdf')])
@@ -318,26 +278,29 @@ class App(tk.Tk):
             if f and f not in self.pdfs:
                 self.pdfs.append(f)
                 self.pdf_list.insert('end', Path(f).name)
+        if files and not self.var_title.get().strip():
+            try:
+                from pdf2post import extract_title, open_doc
+                d = open_doc(files[0])
+                self.var_title.set(extract_title(d, files[0]))
+                d.close()
+            except Exception:
+                pass
         if files:
-            if not self.var_title.get().strip():
-                try:
-                    from pdf2post import extract_title, open_doc
-                    d = open_doc(files[0])
-                    self.var_title.set(extract_title(d, files[0]))
-                    d.close()
-                except Exception:
-                    pass
             self.log('已添加 %d 个 PDF' % len(files))
 
     def remove_pdf(self):
-        sel = list(self.pdf_list.curselection())
-        for idx in reversed(sel):
+        for idx in reversed(list(self.pdf_list.curselection())):
             self.pdf_list.delete(idx)
             self.pdfs.pop(idx)
 
     def start_upload(self):
         if not self.pdfs:
             messagebox.showwarning('提示', '先添加 PDF 文件')
+            return
+        api = self.api or get_api()
+        if not api:
+            messagebox.showwarning('提示', '先点「状态 → 设置 GitHub Token」')
             return
         title = self.var_title.get().strip()
         date_str = self.var_date.get().strip()
@@ -348,21 +311,25 @@ class App(tk.Tk):
         def job():
             try:
                 from pdf2post import convert_pdf
-                for idx, pdf in enumerate(pdfs):
+                for pdf in pdfs:
                     self.log('—— 开始转换：%s' % Path(pdf).name)
                     t = title if (len(pdfs) == 1 and title) else None
                     res = convert_pdf(pdf, str(REPO), title=t, date_str=date_str,
                                       tags=tags, categories=cats, log=self.log)
-                    self.log('—— 推送到 GitHub……')
-                    sha = push_changes('feat: 上传周报《%s》' % res['title'], log=self.log)
-                    if sha:
-                        state = wait_deploy(sha, log=self.log)
-                        if state == 'success':
-                            self.log('✅ 已上线：%s （首页/Archives 里能看到新文章）' % SITE_URL)
-                        else:
-                            self.log('⚠️ 部署状态：%s（去 Actions 看看）' % state)
+                    files = {}
+                    md_bytes = Path(res['md_path']).read_bytes()
+                    files['source/_posts/' + Path(res['md_path']).name] = md_bytes
+                    for img in Path(res['image_dir']).glob('*'):
+                        if img.is_file():
+                            rel = img.relative_to(REPO).as_posix()
+                            files[rel] = img.read_bytes()
+                    self.log('—— 上传到 GitHub（%d 个文件）……' % len(files))
+                    sha = api.commit_files(files, 'feat: 上传周报《%s》' % res['title'])
+                    state = api.run_status(sha, log=self.log)
+                    if state == 'success':
+                        self.log('✅ 已上线：%s （首页/Archives 里能看到新文章）' % SITE_URL)
                     else:
-                        self.log('没有内容变化，未推送。')
+                        self.log('⚠️ 部署状态：%s（去 Actions 看看）' % state)
                 self.log('全部完成 🎉')
             except Exception as e:
                 self.log('❌ 出错：%s' % e)
@@ -377,21 +344,10 @@ class App(tk.Tk):
                                            filetypes=[('图片', '*.jpg *.jpeg *.png *.webp *.bmp')])
             if not f:
                 self.bg_choice.set('粉色星云（当前）')
+                self._refresh_banner_preview()
                 return
             self.bg_custom = f
         self._refresh_banner_preview()
-
-    def _refresh_banner_preview(self):
-        try:
-            path = self._selected_bg_source()
-            if path and Path(path).exists():
-                self.bg_image = thumb(path)
-                self.bg_preview.config(image=self.bg_image)
-            else:
-                self.bg_image = thumb(REPO / 'source' / 'images' / 'banner.jpg')
-                self.bg_preview.config(image=self.bg_image)
-        except Exception as e:
-            self.log('预览失败：%s' % e)
 
     def _selected_bg_source(self):
         choice = self.bg_choice.get()
@@ -402,7 +358,22 @@ class App(tk.Tk):
             return REPO / 'source' / 'images' / name
         return None
 
+    def _refresh_banner_preview(self):
+        try:
+            src = self._selected_bg_source()
+            if src and Path(src).exists():
+                self.bg_image = thumb(src)
+            else:
+                self.bg_image = thumb(REPO / 'source' / 'images' / 'banner.jpg')
+            self.bg_preview.config(image=self.bg_image)
+        except Exception as e:
+            self.log('预览失败：%s' % e)
+
     def start_style_save(self):
+        api = self.api or get_api()
+        if not api:
+            messagebox.showwarning('提示', '先点「状态 → 设置 GitHub Token」')
+            return
         title = self.var_site_title.get().strip()
         subtitle = self.var_site_sub.get().strip()
         author = self.var_site_author.get().strip()
@@ -410,17 +381,23 @@ class App(tk.Tk):
 
         def job():
             try:
+                files = {}
                 if bg_src and Path(bg_src).exists():
-                    dst = REPO / 'source' / 'images' / 'banner.jpg'
-                    make_banner(bg_src, dst)
-                    self.log('背景已更新：%s → banner.jpg' % Path(bg_src).name)
-                set_site_config(title=title, subtitle=subtitle, author=author)
-                self.log('站点信息已更新：%s / %s / %s' % (title, subtitle, author))
-                sha = push_changes('style: 更新背景与站点信息', log=self.log)
-                if sha:
-                    state = wait_deploy(sha, log=self.log)
-                    self.log('✅ 已发布（%s）：%s' % (state, SITE_URL))
-                self._refresh_banner_preview()
+                    data = make_banner(bg_src)
+                    files['source/images/banner.jpg'] = data
+                    (REPO / 'source' / 'images' / 'banner.jpg').write_bytes(data)
+                    self.log('背景已生成：%s' % Path(bg_src).name)
+                cfg_text, _ = api.get_text('_config.yml')
+                new_cfg = apply_site_config(cfg_text or '', title=title,
+                                            subtitle=subtitle, author=author)
+                files['_config.yml'] = new_cfg.encode('utf-8')
+                (REPO / '_config.yml').write_text(new_cfg, encoding='utf-8', newline='\n')
+                self.log('站点信息：%s / %s / %s' % (title, subtitle, author))
+                sha = api.commit_files(files, 'style: 更新背景与站点信息')
+                state = api.run_status(sha, log=self.log)
+                self.log('✅ 已发布（%s）：%s' % (state, SITE_URL))
+                self.after(0, self._refresh_banner_preview)
+                self.after(0, self.refresh_status)
             except Exception as e:
                 self.log('❌ 出错：%s' % e)
                 messagebox.showerror('出错', str(e))
@@ -428,27 +405,34 @@ class App(tk.Tk):
         threading.Thread(target=job, daemon=True).start()
 
     # ---------------- status tab ----------------
-    def _refresh_status(self):
-        lines = ['仓库目录：%s' % REPO, '远端仓库：https://github.com/%s' % GITHUB_REPO,
-                 '站点地址：%s' % SITE_URL, '']
-        code, out = run(['git', 'log', '--oneline', '-5'])
-        lines.append('最近提交：')
-        lines.extend(out.strip().splitlines() or ['（无）'])
-        lines.append('')
-        code, out = run(['git', 'status', '--short'])
-        lines.append('工作区改动：')
-        lines.extend(out.strip().splitlines() or ['（干净）'])
-        cfg = site_config()
-        lines.extend(['', '当前站点信息：标题=%s 副标题=%s 作者=%s' % (
-            cfg['title'], cfg['subtitle'], cfg['author'])])
+    def refresh_status(self):
+        lines = ['仓库：https://github.com/%s' % GITHUB_REPO,
+                 '站点：%s' % SITE_URL, '本地目录：%s' % REPO, '']
+        api = self.api or get_api()
+        if not api:
+            lines.append('GitHub Token：未设置（点下面「设置 GitHub Token」）')
+        else:
+            try:
+                sha = api.latest_commit_sha()
+                lines.append('GitHub Token：已保存（加密）')
+                lines.append('远端最新提交：' + sha[:10])
+                cfg_text, _ = api.get_text('_config.yml')
+                cfg = site_config_from_text(cfg_text)
+                lines.append('当前站点信息：标题=%s 副标题=%s 作者=%s'
+                             % (cfg['title'], cfg['subtitle'], cfg['author']))
+                runs = api.latest_run()
+                run = runs
+                if run:
+                    lines.append('最近部署：%s / %s' % (run['status'], run.get('conclusion')))
+            except Exception as e:
+                lines.append('状态查询失败：%s' % e)
         self.status_text.delete('1.0', 'end')
         self.status_text.insert('end', '\n'.join(lines))
 
 
 def main():
     os.chdir(str(REPO))
-    app = App()
-    app.mainloop()
+    App().mainloop()
 
 
 if __name__ == '__main__':
