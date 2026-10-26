@@ -6,12 +6,14 @@
 
 import base64
 import json
+import threading
 import time
 import urllib.error
 import urllib.request
 
 API = 'https://api.github.com'
 UA = 'PommeTool/1.0'
+_COMMIT_LOCK = threading.Lock()
 
 
 class GitHubAPI:
@@ -111,8 +113,30 @@ class GitHubAPI:
         return data['full_name']
 
     # -------- 一次提交多个文件 --------
-    def commit_files(self, files, message, deletions=None):
-        """files: {path: bytes}；deletions: 需要删除的 path 列表。返回 commit sha。"""
+    def commit_files(self, files, message, deletions=None, retries=3):
+        """files: {path: bytes}；deletions: 需要删除的 path 列表。返回 commit sha。
+
+        GitHub 的 ref 更新是乐观锁：如果同一时间别的地方（另一个工具窗口、网页、
+        或者上一次操作）也在提交，就会报 "Update is not a fast forward"。
+        这里会自动重新取最新提交并重试，避免用户看到这个错误。
+        """
+        last_err = None
+        for attempt in range(retries):
+            try:
+                with _COMMIT_LOCK:
+                    return self._commit_once(files, message, deletions)
+            except RuntimeError as e:
+                msg = str(e)
+                if ('fast forward' in msg or 'non-fast-forward' in msg
+                        or '409' in msg or '422' in msg):
+                    last_err = e
+                    time.sleep(0.8 * (attempt + 1))
+                    continue
+                raise
+        raise RuntimeError('保存冲突：同时有另一个提交在写入，已自动重试 %d 次仍失败，'
+                           '请稍后再点一次。原始错误：%s' % (retries, last_err))
+
+    def _commit_once(self, files, message, deletions=None):
         base_commit = self.latest_commit_sha()
         base = self._request('GET', self._repo_url('/git/commits/' + base_commit))
         tree_sha = base['tree']['sha']
