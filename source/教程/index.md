@@ -1,7 +1,7 @@
 ---
 title: "教程"
-date: 2026-10-26 15:49:08
+date: 2026-10-26 16:11:36
 type: page
 ---
 
-这里是「教程」页面。可以在「仓库管理」里编辑这篇文件写内容，也可以上传图片后引用。
+<div class="section-list" data-section="教程"></div>

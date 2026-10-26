@@ -732,7 +732,7 @@ class App(tk.Tk):
                 files = {'_config.landscape.yml': new_text.encode('utf-8')}
                 for path, content in self.pending_pages.items():
                     files[path] = content.encode('utf-8')
-                sha = api.commit_files(files, 'nav: 更新顶部导航菜单')
+                sha = api.commit_files(files, 'nav: 更新顶部导航菜单', log=self.log)
                 self.pending_pages.clear()
                 (REPO / '_config.landscape.yml').write_text(new_text, encoding='utf-8', newline='\n')
                 state = api.run_status(sha, log=self.log)
@@ -863,7 +863,7 @@ class App(tk.Tk):
         new_text = build_front_matter(data, body)
         try:
             sha = api.commit_files({path: new_text.encode('utf-8')},
-                                   'edit: 更新文章《%s》' % data['title'])
+                                   'edit: 更新文章《%s》' % data['title'], log=self.log)
             local = REPO / path
             local.parent.mkdir(parents=True, exist_ok=True)
             local.write_text(new_text, encoding='utf-8', newline='\n')
@@ -963,7 +963,7 @@ class App(tk.Tk):
                         items.append({'label': target, 'url': '/' + target})
                         files['_config.landscape.yml'] = replace_menu_block(text or '', items).encode('utf-8')
                         self.log('将分区加入顶部导航')
-                sha = api.commit_files(files, 'move: 把《%s》移动到分区 %s' % (article['title'], target))
+                sha = api.commit_files(files, 'move: 把《%s》移动到分区 %s' % (article['title'], target), log=self.log)
                 state = api.run_status(sha, log=self.log)
                 self.log('✅ 已移动（%s）：%s%s/' % (state, self.cfg['site_url'], target))
                 self.ui(self.articles_refresh)
@@ -1173,7 +1173,7 @@ class App(tk.Tk):
                         if img.is_file():
                             files[img.relative_to(REPO).as_posix()] = img.read_bytes()
                     self.log('—— 上传到 GitHub（%d 个文件）……' % len(files))
-                    sha = api.commit_files(files, 'feat: 上传周报《%s》' % res['title'])
+                    sha = api.commit_files(files, 'feat: 上传周报《%s》' % res['title'], log=self.log)
                     state = api.run_status(sha, log=self.log)
                     if state == 'success':
                         self.log('✅ 已上线：%s周报/' % self.cfg['site_url'])
@@ -1240,7 +1240,7 @@ class App(tk.Tk):
                                             subtitle=subtitle, author=author)
                 files['_config.yml'] = new_cfg.encode('utf-8')
                 (REPO / '_config.yml').write_text(new_cfg, encoding='utf-8', newline='\n')
-                sha = api.commit_files(files, 'style: 更新背景与站点信息')
+                sha = api.commit_files(files, 'style: 更新背景与站点信息', log=self.log)
                 state = api.run_status(sha, log=self.log)
                 self.log('✅ 已发布（%s）：%s' % (state, self.cfg['site_url']))
                 self.ui(self._refresh_banner_preview)

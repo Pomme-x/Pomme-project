@@ -8,7 +8,9 @@ import base64
 import json
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import urllib.error
+import urllib.parse
 import urllib.request
 
 API = 'https://api.github.com'
@@ -55,8 +57,9 @@ class GitHubAPI:
     # -------- 读取 --------
     def get_file(self, path):
         """返回 (bytes, sha)；文件不存在返回 (None, None)。"""
+        safe_path = urllib.parse.quote(path.strip('/'), safe='/')
         try:
-            data = self._request('GET', self._repo_url('/contents/%s?ref=%s' % (path, self.branch)))
+            data = self._request('GET', self._repo_url('/contents/%s?ref=%s' % (safe_path, self.branch)))
         except RuntimeError as e:
             if '404' in str(e) or 'Not Found' in str(e):
                 return None, None
@@ -81,7 +84,8 @@ class GitHubAPI:
 
     def list_dir(self, path=''):
         path = path.strip('/')
-        suffix = '/contents' + (('/' + path) if path else '') + '?ref=' + self.branch
+        safe = urllib.parse.quote(path, safe='/')
+        suffix = '/contents' + (('/' + safe) if safe else '') + '?ref=' + self.branch
         try:
             data = self._request('GET', self._repo_url(suffix))
         except RuntimeError as e:
@@ -113,7 +117,7 @@ class GitHubAPI:
         return data['full_name']
 
     # -------- 一次提交多个文件 --------
-    def commit_files(self, files, message, deletions=None, retries=3):
+    def commit_files(self, files, message, deletions=None, retries=3, log=None):
         """files: {path: bytes}；deletions: 需要删除的 path 列表。返回 commit sha。
 
         GitHub 的 ref 更新是乐观锁：如果同一时间别的地方（另一个工具窗口、网页、
@@ -124,7 +128,7 @@ class GitHubAPI:
         for attempt in range(retries):
             try:
                 with _COMMIT_LOCK:
-                    return self._commit_once(files, message, deletions)
+                    return self._commit_once(files, message, deletions, log)
             except RuntimeError as e:
                 msg = str(e)
                 if ('fast forward' in msg or 'non-fast-forward' in msg
@@ -136,18 +140,32 @@ class GitHubAPI:
         raise RuntimeError('保存冲突：同时有另一个提交在写入，已自动重试 %d 次仍失败，'
                            '请稍后再点一次。原始错误：%s' % (retries, last_err))
 
-    def _commit_once(self, files, message, deletions=None):
+    def _commit_once(self, files, message, deletions=None, log=None):
         base_commit = self.latest_commit_sha()
         base = self._request('GET', self._repo_url('/git/commits/' + base_commit))
         tree_sha = base['tree']['sha']
 
-        entries = []
-        for path, content in files.items():
+        def put_one(item):
+            path, content = item
             blob = self._request('POST', self._repo_url('/git/blobs'), {
                 'content': base64.b64encode(content).decode('ascii'),
                 'encoding': 'base64',
             })
-            entries.append({'path': path, 'mode': '100644', 'type': 'blob', 'sha': blob['sha']})
+            return {'path': path, 'mode': '100644', 'type': 'blob', 'sha': blob['sha']}
+
+        entries = []
+        items = list(files.items())
+        if len(items) == 1:
+            entries.append(put_one(items[0]))
+        elif len(items) > 1:
+            done = 0
+            with ThreadPoolExecutor(max_workers=8) as ex:
+                futures = [ex.submit(put_one, it) for it in items]
+                for fut in as_completed(futures):
+                    entries.append(fut.result())
+                    done += 1
+                    if log and (done % 20 == 0 or done == len(items)):
+                        log('上传文件 %d/%d …' % (done, len(items)))
         for path in (deletions or []):
             entries.append({'path': path, 'mode': '100644', 'type': 'blob', 'sha': None})
 

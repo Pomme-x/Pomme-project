@@ -165,6 +165,8 @@ def convert_pdf(pdf_path, repo_dir, title=None, date_str=None, tags=None,
     page_count = doc.page_count
 
     for pno in range(doc.page_count):
+        if log and doc.page_count > 12 and pno % 10 == 0:
+            log('转换中 %d/%d 页 …' % (pno + 1, doc.page_count))
         page = doc[pno]
         page_bboxes = [b for t in merged for p, b in t['positions'] if p == pno]
         emit_tables = [t for t in merged if t['page'] == pno]
@@ -245,7 +247,10 @@ def convert_pdf(pdf_path, repo_dir, title=None, date_str=None, tags=None,
                     name = 'p%02d_%d.%s' % (pno + 1, img_count, 'jpg')
                     target = images_dir / name
                     im = Image.open(__import__('io').BytesIO(pix['image'])).convert('RGB')
-                    im.save(target, 'JPEG', quality=82, optimize=True, progressive=True)
+                    if im.width > 1200:
+                        ratio = 1200.0 / im.width
+                        im = im.resize((1200, max(1, int(im.height * ratio))), Image.LANCZOS)
+                    im.save(target, 'JPEG', quality=80, optimize=True, progressive=True)
                     url = '%s%s/%s' % (IMAGE_URL_PREFIX, slug, name)
                     md_parts.append('\n![第%d页截图](%s)\n' % (pno + 1, url))
                 except Exception as e:
@@ -356,7 +361,8 @@ def convert_pdf(pdf_path, repo_dir, title=None, date_str=None, tags=None,
     fm.append('categories:')
     for c in categories:
         fm.append('  - ' + q(c))
-    fm.append('permalink: ' + q('周报/%s/' % slug))
+    section = (categories[0].strip().strip('/') if categories else '周报') or '周报'
+    fm.append('permalink: ' + q('%s/%s/' % (section, slug)))
     fm.append('---')
     fm.append('')
     content = '\n'.join(fm) + body + '\n'
