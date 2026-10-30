@@ -61,9 +61,13 @@
 
 ## 依赖
 
-- Python 3（优先 DSH 自带 Python，其次系统 Python）
-- `pymupdf`、`Pillow`（本机已装）
-- 能访问 GitHub 的网络
+- Python 3 + `pymupdf`、`Pillow` + 能访问 GitHub 的网络
+- **启动脚本会自动挑选装好依赖的 Python**（系统 Python 3.11 优先，其次 DSH 自带 Python），
+  都没有时会自动 `pip install pymupdf pillow`
+- 如果看到 `No module named 'fitz'` / `No module named 'pymupdf'`：
+  说明启动用的那个 Python 环境被重置过（例如 DSH 升级），直接双击「启动Pomme工具.bat」即可，
+  它会自动选对环境或安装依赖；也可以手动：
+  `"%LOCALAPPDATA%\Programs\Python\Python311\python.exe" -m pip install pymupdf pillow`
 
 ## 文件说明
 

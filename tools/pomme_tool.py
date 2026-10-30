@@ -25,7 +25,21 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
 
-from PIL import Image, ImageTk
+try:
+    from PIL import Image, ImageTk
+except Exception:
+    try:
+        _root = tk.Tk()
+        _root.withdraw()
+        messagebox.showerror(
+            '缺少依赖',
+            '当前 Python 缺少 Pillow / PyMuPDF。\n\n'
+            '请双击「启动Pomme工具.bat」，它会自动选择装好依赖的 Python，\n'
+            '没有的话会自动安装。')
+        _root.destroy()
+    except Exception:
+        pass
+    raise SystemExit(1)
 
 TOOLS_DIR = Path(__file__).resolve().parent
 REPO = TOOLS_DIR.parent
@@ -1496,6 +1510,22 @@ class App(tk.Tk):
 
 def main():
     os.chdir(str(REPO))
+    try:
+        import pymupdf  # noqa: F401
+    except Exception:
+        try:
+            _r = tk.Tk()
+            _r.withdraw()
+            messagebox.showerror(
+                '缺少 PDF 依赖',
+                '当前 Python 缺少 PyMuPDF（pymupdf）。\n\n'
+                '请双击「启动Pomme工具.bat」，它会自动选择/安装依赖；\n'
+                '或手动运行：\n'
+                '  "%LOCALAPPDATA%\\Programs\\Python\\Python311\\python.exe" -m pip install pymupdf pillow')
+            _r.destroy()
+        except Exception:
+            pass
+        return
     app = App()
     for arg in sys.argv[1:]:
         if arg.startswith('--tab='):
